@@ -1,4 +1,4 @@
-# ME/EE/CS 133a
+# ME/EE/CS 133a Final Project
 
 Week 1:
 
