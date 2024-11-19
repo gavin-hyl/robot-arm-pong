@@ -1,4 +1,4 @@
-# cs133a-final-project
+# ME/EE/CS 133a
 
 Week 1:
 
