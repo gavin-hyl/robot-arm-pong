@@ -1,13 +1,9 @@
 import os
-import xacro
 
 from ament_index_python.packages import get_package_share_directory as pkgdir
 
 from launch                            import LaunchDescription
-from launch.actions                    import DeclareLaunchArgument
-from launch.actions                    import OpaqueFunction
 from launch.actions                    import Shutdown
-from launch.substitutions              import LaunchConfiguration
 from launch_ros.actions                import Node
 
 

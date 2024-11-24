@@ -2,9 +2,16 @@
 
 ## Instructions
 
-- Clone this repository into `proj_ws` (or any workspace of your choosing)
-- `cd proj_ws` then run `colcon build`
-- `ros2 launch`
+Clone this repository into `proj_ws` (or any workspace of your choosing)
+
+```bash
+cd proj_ws
+colcon build
+source install/setup.bash
+ros2 launch final_project final_project.launch.py
+```
+
+Note that after running the command, *change the RVIZ configuration to the one in* `rviz/viewurdfplus.rviz`. (TODO: fix this)
 
 Week 1:
 

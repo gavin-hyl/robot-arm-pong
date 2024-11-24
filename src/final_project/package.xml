@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>project</name>
+  <name>final_project</name>
   <version>0.0.0</version>
   <description>Final project for ME/EE/CS 133a - Robotics</description>
   <maintainer email="ghua@caltech.edu">Gavin Yuliu Hua</maintainer>
