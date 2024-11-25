@@ -611,7 +611,38 @@
 
   <!-- *** Cube: Six sides *** -->
 
-  <joint name="attach-cube" type="fixed">
+   <!-- *** Tip: Circular Paddle *** -->
+<joint name="attach-paddle" type="fixed">
+  <parent link="tip"/>
+  <child  link="paddle"/>
+</joint>
+<link name="paddle">
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/> <!-- Position the paddle slightly offset from the handbase -->
+    <geometry>
+      <cylinder length="0.01" radius="0.15"/> <!-- Circular paddle dimensions -->
+    </geometry>
+    <material name="blue"/>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <cylinder length="0.01" radius="0.15"/> <!-- Match collision geometry with visual -->
+    </geometry>
+  </collision>
+  <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.5"/> 
+    <inertia
+      ixx="0.00375" ixy="0.0" ixz="0.0"
+      iyy="0.00375" iyz="0.0"
+      izz="0.00001"/>
+  </inertial>
+</link>
+
+
+
+  <!-- <joint name="attach-cube" type="fixed">
     <parent link="tip"/>
     <child  link="cube"/>
   </joint>
@@ -619,7 +650,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
-	<box size="0.10 0.10 0.10"/>
+	<box size="0.10 0.10 0.05"/>
       </geometry>
     </collision>
     <inertial>
@@ -702,7 +733,7 @@
       <geometry> <box size="0.09 0.09 0.0202"/> </geometry>
       <material name="yellow"/>
     </visual>
-  </link>
+  </link> -->
 
 
   <!-- *************************************************** -->
