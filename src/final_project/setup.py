@@ -13,6 +13,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name + '/launch', glob('launch/*')),
         ('share/' + package_name + '/urdf',   glob('urdf/*')),
+        ('share/' + package_name + '/rviz',   glob('rviz/*'))
     ],
     install_requires=['setuptools'],
     zip_safe=True,
