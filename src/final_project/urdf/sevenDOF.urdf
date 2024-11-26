@@ -513,228 +513,34 @@
     </inertial>
   </link>
 
-  <!-- *** Motor 7 Output: Base, Palm, Fingers *** -->
-
-  <joint name="attach-handbase" type="fixed">
-    <parent link="link7"/>
-    <child  link="handbase"/>
-  </joint>
-  <link name="handbase">
-    <visual>
-      <origin xyz="0 0.05 0" rpy="1.5708 0 0"/>
-      <geometry>
-	<cylinder length="0.1" radius="0.01"/>
-      </geometry>
-      <material name="black"/>
-    </visual>
-    <collision>
-      <origin xyz="0 0.05 0" rpy="1.5708 0 0"/>
-      <geometry>
-	<cylinder length="0.1" radius="0.01"/>
-      </geometry>
-    </collision>
-    <inertial>
-      <origin xyz="0 0.05 0" rpy="1.5708 0 0"/>
-      <mass value="0.05"/>
-      <inertia
-        ixx="0.000043" ixy="0.0" ixz="0.0"
-        iyy="0.000043" iyz="0.0"
-        izz="0.000003"/>
-    </inertial>
-  </link>
-
-  <joint name="attach-palm" type="fixed">
-    <parent link="link7"/>
-    <child  link="palm"/>
-  </joint>
-  <link name="palm">
-    <visual>
-      <origin xyz="0 0.1 0" rpy="0 1.5708 0"/>
-      <geometry>
-	<cylinder length="0.1" radius="0.01"/>
-      </geometry>
-      <material name="black"/>
-    </visual>
-    <inertial>
-      <origin xyz="0 0.1 0" rpy="0 1.5708 0"/>
-      <mass value="0.05"/>
-      <inertia
-        ixx="0.000043" ixy="0.0" ixz="0.0"
-        iyy="0.000043" iyz="0.0"
-        izz="0.000003"/>
-    </inertial>
-  </link>
-
-  <joint name="attach-leftfinger" type="fixed">
-    <parent link="link7"/>
-    <child  link="leftfinger"/>
-  </joint>
-  <link name="leftfinger">
-    <visual>
-      <origin xyz="-0.05 0.14 0" rpy="1.5708 0 0"/>
-      <geometry>
-	<cylinder length="0.08" radius="0.01"/>
-      </geometry>
-      <material name="black"/>
-    </visual>
-    <inertial>
-      <origin xyz="-0.05 0.14 0" rpy="1.5708 0 0"/>
-      <mass value="0.05"/>
-      <inertia
-        ixx="0.000022" ixy="0.0" ixz="0.0"
-        iyy="0.000022" iyz="0.0"
-        izz="0.000002"/>
-    </inertial>
-  </link>
-
-  <joint name="attach-rightfinger" type="fixed">
-    <parent link="link7"/>
-    <child  link="rightfinger"/>
-  </joint>
-  <link name="rightfinger">
-    <visual>
-      <origin xyz="0.05 0.14 0" rpy="1.5708 0 0"/>
-      <geometry>
-	<cylinder length="0.08" radius="0.01"/>
-      </geometry>
-      <material name="black"/>
-    </visual>
-    <inertial>
-      <origin xyz="0.05 0.14 0" rpy="1.5708 0 0"/>
-      <mass value="0.05"/>
-      <inertia
-        ixx="0.000022" ixy="0.0" ixz="0.0"
-        iyy="0.000022" iyz="0.0"
-        izz="0.000002"/>
-    </inertial>
-  </link>
-
-  <!-- *** Cube: Six sides *** -->
-
-   <!-- *** Tip: Circular Paddle *** -->
-<joint name="attach-paddle" type="fixed">
-  <parent link="tip"/>
-  <child  link="paddle"/>
-</joint>
-<link name="paddle">
-  <visual>
-    <origin xyz="0 0 0" rpy="0 0 0"/> <!-- Position the paddle slightly offset from the handbase -->
-    <geometry>
-      <cylinder length="0.01" radius="0.15"/> <!-- Circular paddle dimensions -->
-    </geometry>
-    <material name="blue"/>
-  </visual>
-  <collision>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <geometry>
-      <cylinder length="0.01" radius="0.15"/> <!-- Match collision geometry with visual -->
-    </geometry>
-  </collision>
-  <inertial>
-    <origin xyz="0 0 0" rpy="0 0 0"/>
-    <mass value="0.5"/> 
-    <inertia
-      ixx="0.00375" ixy="0.0" ixz="0.0"
-      iyy="0.00375" iyz="0.0"
-      izz="0.00001"/>
-  </inertial>
-</link>
-
-
-
-  <!-- <joint name="attach-cube" type="fixed">
+  <!-- *** Tip: Circular Paddle *** -->
+  <joint name="attach-paddle" type="fixed">
     <parent link="tip"/>
-    <child  link="cube"/>
+    <child  link="paddle"/>
   </joint>
-  <link name="cube">
-    <collision>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+  <link name="paddle">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/> <!-- Position the paddle slightly offset from the handbase -->
       <geometry>
-	<box size="0.10 0.10 0.05"/>
+        <cylinder length="0.01" radius="0.15"/> <!-- Circular paddle dimensions -->
       </geometry>
-    </collision>
-    <inertial>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
-      <mass value="1.0"/>
-      <inertia
-        ixx="0.000120" ixy="0.0" ixz="0.0"
-        iyy="0.000120" iyz="0.0"
-        izz="0.000120"/>
-    </inertial>
-  </link>
-
-  <joint name="attach-cube-xp" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-xp"/>
-  </joint>
-  <link name="cube-xp">
-    <visual>
-      <origin         xyz=" 0.04   0    0"    rpy="0 0 0"/>
-      <geometry> <box size="0.0202 0.09 0.09"/> </geometry>
-      <material name="red"/>
-    </visual>
-  </link>
-
-  <joint name="attach-cube-xm" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-xm"/>
-  </joint>
-  <link name="cube-xm">
-    <visual>
-      <origin         xyz="-0.04   0    0"    rpy="0 0 0"/>
-      <geometry> <box size="0.0202 0.09 0.09"/> </geometry>
-      <material name="cyan"/>
-    </visual>
-  </link>
-
-  <joint name="attach-cube-yp" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-yp"/>
-  </joint>
-  <link name="cube-yp">
-    <visual>
-      <origin         xyz=" 0    0.04   0"    rpy="0 0 0"/>
-      <geometry> <box size="0.09 0.0202 0.09"/> </geometry>
-      <material name="green"/>
-    </visual>
-  </link>
-
-  <joint name="attach-cube-ym" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-ym"/>
-  </joint>
-  <link name="cube-ym">
-    <visual>
-      <origin         xyz=" 0   -0.04   0"    rpy="0 0 0"/>
-      <geometry> <box size="0.09 0.0202 0.09"/> </geometry>
-      <material name="magenta"/>
-    </visual>
-  </link>
-
-  <joint name="attach-cube-zp" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-zp"/>
-  </joint>
-  <link name="cube-zp">
-    <visual>
-      <origin         xyz=" 0    0    0.04"   rpy="0 0 0"/>
-      <geometry> <box size="0.09 0.09 0.0202"/> </geometry>
       <material name="blue"/>
     </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder length="0.01" radius="0.15"/> <!-- Match collision geometry with visual -->
+      </geometry>
+    </collision>
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.5"/> 
+      <inertia
+        ixx="0.00375" ixy="0.0" ixz="0.0"
+        iyy="0.00375" iyz="0.0"
+        izz="0.00001"/>
+    </inertial>
   </link>
-
-  <joint name="attach-cube-zm" type="fixed">
-    <parent link="cube"/>
-    <child  link="cube-zm"/>
-  </joint>
-  <link name="cube-zm">
-    <visual>
-      <origin         xyz=" 0    0   -0.04"   rpy="0 0 0"/>
-      <geometry> <box size="0.09 0.09 0.0202"/> </geometry>
-      <material name="yellow"/>
-    </visual>
-  </link> -->
-
 
   <!-- *************************************************** -->
   <!-- ******************* Gazebo Colors ***************** -->
