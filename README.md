@@ -10,5 +10,10 @@ colcon build
 source install/setup.bash
 ros2 launch final_project final_project.launch.py
 ```
-Week 1:
-- Ball generation in RVIZ (Julia)
+
+TODOs
+
+- Ball trajectory generation, passing through workspace and starting further away (Julia)
+- Paddle physics - bouncy balls (Gavin)
+- Target generation (random position and collision detection) (Sophia)
+

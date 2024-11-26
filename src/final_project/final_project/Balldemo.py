@@ -38,7 +38,7 @@ class DemoNode(Node):
             MarkerArray, '/visualization_marker_array', quality)
 
         # Initialize the ball position, velocity, set the acceleration.
-        self.radius = 0.1
+        self.radius = 0.05
 
         self.p = np.array([0.0, 0.0, self.radius])
         self.v = np.array([1.0, 0.1,  5.0       ])
