@@ -16,22 +16,12 @@ from launch_ros.actions                import Node
 #
 def generate_launch_description():
 
-    ######################################################################
-    # LOCATE FILES
-
-    # Locate the RVIZ configuration file.
     rvizcfg = os.path.join(pkgdir('final_project'), 'rviz/viewurdfplus.rviz')
 
-    # Locate the URDF file.
     urdf = os.path.join(pkgdir('final_project'), 'urdf/sevenDOF.urdf')
     with open(urdf, 'r') as file:
         robot_description = file.read()
 
-
-    ######################################################################
-    # PREPARE THE LAUNCH ELEMENTS
-
-    # Configure a node for the robot_state_publisher.
     node_robot_state_publisher = Node(
         name       = 'robot_state_publisher', 
         package    = 'robot_state_publisher',
@@ -39,7 +29,6 @@ def generate_launch_description():
         output     = 'screen',
         parameters = [{'robot_description': robot_description}])
 
-    # Configure a node for RVIZ
     node_rviz = Node(
         name       = 'rviz', 
         package    = 'rviz2',
@@ -48,7 +37,6 @@ def generate_launch_description():
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
     
-    # Configure a node for the joint trajectory
     node_trajectory = Node(
         name       = 'traj', 
         package    = 'final_project',
@@ -61,9 +49,6 @@ def generate_launch_description():
         executable = 'ball_demo',
         output     = 'screen')
 
-
-    ######################################################################
-    # RETURN THE ELEMENTS IN ONE LIST
     return LaunchDescription([
         node_robot_state_publisher,
         node_rviz,
