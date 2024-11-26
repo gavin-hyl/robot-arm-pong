@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'trajectory = final_project.Trajectory:main',
+            'ball_demo = final_project.Balldemo:main',
         ],
     },
 )

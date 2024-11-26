@@ -50,6 +50,12 @@ def generate_launch_description():
         package    = 'final_project',
         executable = 'trajectory',
         output     = 'screen')
+    
+    ball_viz = Node(
+        name       = 'ball_demo', 
+        package    = 'final_project',
+        executable = 'ball_demo',
+        output     = 'screen')
 
 
     ######################################################################
@@ -58,4 +64,5 @@ def generate_launch_description():
         node_robot_state_publisher,
         node_rviz,
         node_trajectory,
+        ball_viz
     ])
