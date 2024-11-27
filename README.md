@@ -11,7 +11,7 @@ source install/setup.bash
 ros2 launch final_project final_project.launch.py
 ```
 
-TODOs (rn make them as fast as possible)
+TODOs (by Thursday night)
 
 - Ball trajectory generation, passing through workspace and starting further away (Julia)
 - Paddle physics - bouncy balls (Gavin)
