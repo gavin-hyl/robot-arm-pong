@@ -34,6 +34,12 @@ class BallEngineNode(Node):
         self.pub = self.create_publisher(
             MarkerArray, '/visualization_marker_array', quality)
         
+        self.pub_pos = self.create_publisher(
+            PoseStamped, '/ball_position', 10)
+        
+        self.pub_vel = self.create_publisher(
+            TwistStamped, '/ball_velocity', 10)
+        
         self.sub_pose = self.create_subscription(
             PoseStamped, '/pose', self.pose_callback, 10)
         
@@ -94,6 +100,9 @@ class BallEngineNode(Node):
 
     # Update - send a new joint command every time step.
     def update(self):
+        self.t += self.dt
+        self.v += self.dt * self.a
+        self.p += self.dt * self.v
 
         # check for collision with the ground
         if self.p[2] < self.radius:
@@ -109,12 +118,6 @@ class BallEngineNode(Node):
             delta_v_proj = np.dot(delta_v, n) * n
             self.v -= 2 * self.restitution * delta_v_proj
 
-        
-        self.t += self.dt
-
-        self.v += self.dt * self.a
-        self.p += self.dt * self.v
-
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
         #####################
@@ -125,6 +128,21 @@ class BallEngineNode(Node):
         self.marker.header.stamp  = self.now().to_msg()
         self.marker.pose.position = Point_from_p(self.p)
         self.pub.publish(self.markerarray)
+
+        pos_msg = PoseStamped()
+        pos_msg.header.stamp = self.now().to_msg()
+        pos_msg.pose.position.x = self.p[0]
+        pos_msg.pose.position.y = self.p[1]
+        pos_msg.pose.position.z = self.p[2]
+        self.pub_pos.publish(pos_msg)
+
+        vel_msg = TwistStamped()
+        vel_msg.header.stamp = self.now().to_msg()
+        vel_msg.twist.linear.x = self.v[0]
+        vel_msg.twist.linear.y = self.v[1]
+        vel_msg.twist.linear.z = self.v[2]
+        self.pub_vel.publish(vel_msg)
+        
 
     def pose_callback(self, msg):
         """Callback for the pose topic. Records the current position and orientation of the paddle.

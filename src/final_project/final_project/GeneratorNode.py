@@ -79,6 +79,9 @@ class RobotControllerNode(Node):
         self.pubpose  = self.create_publisher(PoseStamped, '/pose', 10)
         self.pubtwist = self.create_publisher(TwistStamped, '/twist', 10)
 
+        self.sub_ball_pos = self.create_subscription(PoseStamped, '/ball_position', self.ball_pos_callback, 10)
+        self.sub_ball_vel = self.create_subscription(TwistStamped, '/ball_velocity', self.ball_vel_callback, 10)
+
         # Initialize a regular and static transform broadcaster
         self.tfbroadcaster = tf2_ros.TransformBroadcaster(self)
 
@@ -102,6 +105,9 @@ class RobotControllerNode(Node):
         self.timer = self.create_timer(self.dt, self.update)
         self.get_logger().info("Running with dt of %f seconds (%fHz)" %
                                (self.dt, rate))
+        
+        self.ball_pos = np.zeros(3)
+        self.ball_vel = np.zeros(3)
 
     # Shutdown
     def shutdown(self):
@@ -130,7 +136,7 @@ class RobotControllerNode(Node):
         self.t += self.dt
 
         # Compute the trajectory for this time.
-        des = self.trajectory.evaluate(self.t, self.dt)
+        des = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel)
         if des is None:
             self.future.set_result("Trajectory has ended")
             return
@@ -220,3 +226,9 @@ class RobotControllerNode(Node):
         msg.transform.rotation.z    = quat[2]
         msg.transform.rotation.w    = quat[3]
         self.tfbroadcaster.sendTransform(msg)
+
+    def ball_pos_callback(self, msg):
+        self.ball_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+    
+    def ball_vel_callback(self, msg):
+        self.ball_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])

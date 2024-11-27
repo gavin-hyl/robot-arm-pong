@@ -92,16 +92,20 @@ class Trajectory():
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
 
     # Evaluation
-    def evaluate(self, t, dt):
+    def evaluate(self, t, dt, ball_pos, ball_vel):
         """Compute the desired joint/task positions and velocities, as well as the orientation and angular velocity.
 
         Args:
             t (float): the current time
             dt (float): the time step
+            ball_pos (array): the ball position
+            ball_vel (array): the ball velocity
 
         Returns:
             (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
         """
+
+        # print(ball_pos, ball_vel)
 
         # TEST CASE 1
         # pd = self.p0    # blah whatever the position doesn't really matter for this test
@@ -127,11 +131,6 @@ class Trajectory():
         LAM = 20
         qddot = np.linalg.pinv(Jac) @ (xd_dot + LAM * error)
 
-        c = 10
-        qsdot = c * repulsion(self.qd, self.chain5, self.chain4)
-        qddot_sec = (np.eye(len(self.q0)) - np.linalg.pinv(Jac) @ Jac) @ qsdot
-        qddot += qddot_sec
-        
         self.qd += qddot * dt
         qd = self.qd
 
