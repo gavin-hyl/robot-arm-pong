@@ -93,46 +93,27 @@ class Trajectory():
 
     # Evaluation
     def evaluate(self, t, dt):
-        CYCLE_INIT_SEC = 3
-        CYCLE_PERIOD_SEC = 5
-        Z_ROT_LEFT_RAD = np.pi / 2
-        X_ROT_LEFT_RAD = -np.pi / 2
-        QUARTER_CYCLE_SEC = CYCLE_PERIOD_SEC / 4
+        """Compute the desired joint/task positions and velocities, as well as the orientation and angular velocity.
 
-        if t < CYCLE_INIT_SEC:
-            # compute a cubic interpolation of the position
-            pd, vd = goto(t, CYCLE_INIT_SEC, self.p0, self.P_RIGHT)
-            # the cube is aligned with the initial orientation, no rotation.
-            Rd = self.R0
-            wd = np.zeros(3)
-        else:
-            t -= CYCLE_INIT_SEC
-            t = fmod(t, CYCLE_PERIOD_SEC)
-            if t < QUARTER_CYCLE_SEC:
-                # moving from right to middle
-                pd, vd = goto(t, QUARTER_CYCLE_SEC, self.P_RIGHT, self.p0)
-                Rd = self.R_RIGHT
-                wd = np.zeros(3)
-            elif t < QUARTER_CYCLE_SEC * 2:
-                # moving from middle to left
-                t -= QUARTER_CYCLE_SEC
-                pd, vd = goto(t, QUARTER_CYCLE_SEC, self.p0, self.P_LEFT)
-                s, sd = goto(t, QUARTER_CYCLE_SEC, 0, 1)
-                Rd = Rotz(s * Z_ROT_LEFT_RAD) @ Rotx(s * X_ROT_LEFT_RAD)
-                wd = np.array([0, 0, 1]) * sd * Z_ROT_LEFT_RAD + Rotx(s * X_ROT_LEFT_RAD) @ np.array([1, 0, 0]) * sd * X_ROT_LEFT_RAD
-            elif t < QUARTER_CYCLE_SEC * 3:
-                # moving from left to middle
-                t -= 2 * QUARTER_CYCLE_SEC
-                pd, vd = goto(t, QUARTER_CYCLE_SEC, self.P_LEFT, self.p0)
-                s, sd = goto(t, QUARTER_CYCLE_SEC, 1, 0)
-                Rd = Rotz(s * Z_ROT_LEFT_RAD) @ Rotx(s * X_ROT_LEFT_RAD)
-                wd = np.array([0, 0, 1]) * sd * Z_ROT_LEFT_RAD + Rotx(s * X_ROT_LEFT_RAD) @ np.array([1, 0, 0]) * sd * X_ROT_LEFT_RAD
-            else:
-                # moving from middle to right
-                t -= 3 * QUARTER_CYCLE_SEC
-                pd, vd = goto(t, QUARTER_CYCLE_SEC, self.p0, self.P_RIGHT)
-                Rd = self.R0
-                wd = np.zeros(3)
+        Args:
+            t (float): the current time
+            dt (float): the time step
+
+        Returns:
+            (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
+        """
+
+        # TEST CASE 1
+        # pd = self.p0    # blah whatever the position doesn't really matter for this test
+        # Rd = self.R0
+        # vd = np.array([0, 0, 0.5 * sin(2 * pi * t)])
+        # wd = np.zeros(3)
+
+        # TEST CASE 2
+        pd = self.p0
+        Rd = Rotx(0.3 * np.pi)
+        vd = np.zeros(3)
+        wd = np.zeros(3)
 
         ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
 
