@@ -130,7 +130,7 @@ class RobotControllerNode(Node):
         self.t += self.dt
 
         # Compute the trajectory for this time.
-        des, tip_info = self.trajectory.evaluate(self.t, self.dt)
+        des = self.trajectory.evaluate(self.t, self.dt)
         if des is None:
             self.future.set_result("Trajectory has ended")
             return
