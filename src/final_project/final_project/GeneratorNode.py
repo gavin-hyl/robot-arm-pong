@@ -64,7 +64,7 @@ from final_project.TransformHelpers   import quat_from_R
 #   Take the node name, the update frequency, and the trajectory class
 #   as arguments.
 #
-class GeneratorNode(Node):
+class RobotControllerNode(Node):
     # Initialization.
     def __init__(self, name, rate, Trajectory):
         # Initialize the node, naming it as specified
@@ -130,7 +130,7 @@ class GeneratorNode(Node):
         self.t += self.dt
 
         # Compute the trajectory for this time.
-        des = self.trajectory.evaluate(self.t, self.dt)
+        des, tip_info = self.trajectory.evaluate(self.t, self.dt)
         if des is None:
             self.future.set_result("Trajectory has ended")
             return

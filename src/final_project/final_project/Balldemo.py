@@ -15,18 +15,14 @@ from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
 from geometry_msgs.msg          import Point, Vector3, Quaternion
+from geometry_msgs.msg          import PoseStamped, TwistStamped
 from std_msgs.msg               import ColorRGBA
 from visualization_msgs.msg     import Marker
 from visualization_msgs.msg     import MarkerArray
+from .TransformHelpers          import *
 
-from .TransformHelpers   import *
 
-
-#
-#   Demo Node Class
-#
-class DemoNode(Node):
-    # Initialization.
+class BallEngineNode(Node):
     def __init__(self, name, rate):
         # Initialize the node, naming it as specified
         super().__init__(name)
@@ -34,8 +30,16 @@ class DemoNode(Node):
         # Prepare the publisher (latching for new subscribers).
         quality = QoSProfile(
             durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
+        
         self.pub = self.create_publisher(
             MarkerArray, '/visualization_marker_array', quality)
+        
+        self.sub_pose = self.create_subscription(
+            PoseStamped, '/pose', self.pose_callback, 10)
+        
+        self.sub_twist = self.create_subscription(
+            TwistStamped, '/twist', self.twist_callback, 10)
+        
 
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.05
@@ -57,7 +61,6 @@ class DemoNode(Node):
         self.marker.pose.position    = Point_from_p(self.p)
         self.marker.scale            = Vector3(x = diam, y = diam, z = diam)
         self.marker.color            = ColorRGBA(r=1.0, g=0.0, b=0.0, a=0.8)
-        # a = 0.8 is slightly transparent!
 
         # Create the marker array message.
         self.markerarray = MarkerArray(markers = [self.marker])
@@ -70,8 +73,7 @@ class DemoNode(Node):
 
         # Create a timer to keep calling update().
         self.create_timer(self.dt, self.update)
-        self.get_logger().info("Running with dt of %f seconds (%fHz)" %
-                               (self.dt, rate))
+        self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate} Hz)")
 
     # Shutdown
     def shutdown(self):
@@ -110,13 +112,10 @@ class DemoNode(Node):
         self.pub.publish(self.markerarray)
 
 
-#
-#  Main Code
-#
 def main(args=None):
     # Initialize ROS and the demo node (100Hz).
     rclpy.init(args=args)
-    node = DemoNode('balldemo', 100)
+    node = BallEngineNode('ball_engine', 100)
 
     # Run until interrupted.
     rclpy.spin(node)

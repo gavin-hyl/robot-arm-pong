@@ -6,7 +6,7 @@ from std_msgs.msg import Float64
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
 # Grab the utilities
-from .GeneratorNode      import GeneratorNode
+from .GeneratorNode      import RobotControllerNode
 from .TransformHelpers   import *
 from .TrajectoryUtils    import *
 
@@ -135,6 +135,7 @@ class Trajectory():
                 wd = np.zeros(3)
 
         ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
+
         Jac = np.vstack((Jv, Jw))
         xd_dot = np.concatenate((vd, wd))
 
@@ -142,23 +143,9 @@ class Trajectory():
         R_error = 0.5 * (np.cross(Rtip[:,0], Rd[:,0]) + np.cross(Rtip[:,1], Rd[:,1]) + np.cross(Rtip[:,2], Rd[:,2]))
         error = np.concatenate((p_error, R_error))
 
-        # p2b
-        # xd_dot = np.concatenate((xd_dot, np.array([0])))
-        # error = np.concatenate((error, [-0.5 * qd[0] - qd[2]]))
-        # Jac = np.vstack((Jac, np.array([0.5, 0, 1, 0, 0, 0, 0])))
-
         LAM = 20
         qddot = np.linalg.pinv(Jac) @ (xd_dot + LAM * error)
-        
-        # p2c
-        # LAM2 = 5
-        # q_max = np.pi * np.array([0.5, 0.5, 1, 0, 0.5, 0.5, 0.5])
-        # q_min = np.pi * np.array([-1, -1, 0, -1, -0.5, -0.5, -0.5])
-        # q_bar = 0.5 * (q_max + q_min)
-        # qddot_sec = LAM2 * (np.eye(len(self.q0)) - np.linalg.pinv(Jac) @ Jac) @ (q_bar - self.qd)
-        # qddot += qddot_sec
 
-        # p2d
         c = 10
         qsdot = c * repulsion(self.qd, self.chain5, self.chain4)
         qddot_sec = (np.eye(len(self.q0)) - np.linalg.pinv(Jac) @ Jac) @ qsdot
@@ -166,8 +153,6 @@ class Trajectory():
         
         self.qd += qddot * dt
         qd = self.qd
-
-
 
         return (qd, qddot, pd, vd, Rd, wd)
 
@@ -181,7 +166,7 @@ def main(args=None):
 
     # Initialize the generator node for 100Hz udpates, using the above
     # Trajectory class.
-    generator = GeneratorNode('generator', 100, Trajectory)
+    generator = RobotControllerNode('generator', 100, Trajectory)
 
     # Spin, meaning keep running (taking care of the timer callbacks
     # and message passing), until interrupted or the trajectory ends.

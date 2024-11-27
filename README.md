@@ -11,9 +11,13 @@ source install/setup.bash
 ros2 launch final_project final_project.launch.py
 ```
 
-TODOs
+TODOs (rn make them as fast as possible)
 
 - Ball trajectory generation, passing through workspace and starting further away (Julia)
 - Paddle physics - bouncy balls (Gavin)
 - Target generation (random position and collision detection) (Sophia)
+    - User defined works as well :D
 
+- prismatic joint for the tip position (2 joints for where to hit)
+    - secondary task for tip
+- Tip trajectory formulation asap
