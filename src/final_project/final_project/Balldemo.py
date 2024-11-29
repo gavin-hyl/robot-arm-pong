@@ -58,8 +58,8 @@ class BallEngineNode(Node):
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.05
 
-        self.p = np.array([0.0, 0.5, self.radius + 1])
-        self.v = np.array([0.0, 0.0,  5.0       ])
+        self.p = np.array([5.0, 0.0, self.radius + 2])
+        self.v = np.array([-4.0, 0.0, -4.0])
         self.a = np.array([0.0, 0.0, -9.81      ])
 
         # Create the sphere marker.
