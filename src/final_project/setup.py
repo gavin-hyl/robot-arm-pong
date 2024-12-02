@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'trajectory = final_project.Trajectory:main',
             'ball_demo = final_project.Balldemo:main',
+            'bin_demo = final_project.Bindemo:main',
         ],
     },
 )
