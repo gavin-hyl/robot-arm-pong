@@ -86,7 +86,11 @@ class Trajectory():
         )
         self.P_RIGHT = np.array([-0.3, 0.5, 0.15])
         self.R_RIGHT = np.eye(3)
-        
+
+        # FOR BALL HITTING
+        self.ball_threshold = 1.0  # Distance threshold to detect the ball
+        self.paddle_velocity = 0.1  # Velocity of the paddle to hit the ball
+
     def jointnames(self):
         # Return a list of joint names FOR THE EXPECTED URDF!
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
@@ -105,21 +109,22 @@ class Trajectory():
             (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
         """
 
-        # print(ball_pos, ball_vel)
+        # Target position for the paddle to hit the ball
+        paddle_target = ball_pos + ball_vel * dt  # Predict ball's future position
+        paddle_target[2] += 1.5  # Adjust height to ensure hitting
 
-        # TEST CASE 1
-        # pd = self.p0    # blah whatever the position doesn't really matter for this test
-        # Rd = self.R0
-        # vd = np.array([0, 0, 0.5 * sin(2 * pi * t)])
-        # wd = np.zeros(3)
-
-        # TEST CASE 2
-        pd = self.p0
-        Rd = Rotx(0.3 * np.pi)
-        vd = np.zeros(3)
-        wd = np.zeros(3)
-
+        # Determine if the ball is close enough to hit
         ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
+        if np.linalg.norm(ptip - ball_pos) < self.ball_threshold:
+            pd = paddle_target
+            vd = self.paddle_velocity * (paddle_target - ptip) / np.linalg.norm(paddle_target - ptip)
+        else:
+            # Default trajectory
+            pd = self.p0
+            vd = np.zeros(3)
+
+        Rd = Rotx(0.3 * np.pi)
+        wd = np.zeros(3)
 
         Jac = np.vstack((Jv, Jw))
         xd_dot = np.concatenate((vd, wd))
