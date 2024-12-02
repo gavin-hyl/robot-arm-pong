@@ -48,10 +48,17 @@ def generate_launch_description():
         package    = 'final_project',
         executable = 'ball_demo',
         output     = 'screen')
+    
+    bin_viz = Node(
+        name       = 'bin_demo', 
+        package    = 'final_project',
+        executable = 'bin_demo',
+        output     = 'screen')
 
     return LaunchDescription([
         node_robot_state_publisher,
         node_rviz,
         node_trajectory,
-        ball_viz
+        ball_viz,
+        bin_viz
     ])
