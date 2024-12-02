@@ -58,8 +58,9 @@ class BallEngineNode(Node):
         # Initialize the ball position, velocity, set the acceleration.
         self.radius = 0.05
 
-        self.p = np.array([5.0, 0.0, self.radius + 2])
-        self.v = np.array([-4.0, 0.0, -4.0])
+        self.p = np.array([0.0, 0.0, 0.0])
+        self.v = np.array([0.0, 0.0, 0.0])
+        self.ball_pos()
         self.a = np.array([0.0, 0.0, -9.81      ])
 
         # Create the sphere marker.
@@ -88,6 +89,15 @@ class BallEngineNode(Node):
         # Create a timer to keep calling update().
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate} Hz)")
+        
+    def ball_pos(self):
+        offset_from_paddle = np.array([np.random.uniform(-5, 5), np.random.uniform(-5, 5), self.radius + 2])
+        self.p = self.paddle_pos + offset_from_paddle
+        
+        direction_to_paddle = self.paddle_pos - self.p 
+        direction_to_paddle = direction_to_paddle / np.linalg.norm(direction_to_paddle)
+        
+        self.v = np.random.uniform(1.0, 2.0) * direction_to_paddle
 
     # Shutdown
     def shutdown(self):
