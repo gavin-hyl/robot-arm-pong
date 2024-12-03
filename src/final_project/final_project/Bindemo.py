@@ -43,7 +43,9 @@ class BinEngineNode(Node):
         self.bin_radius = 0.25  
         self.bin_height = 0.5  
         self.bin_wall_thickness = 0.1  
-        self.bin_position = np.array([0.0, 3.0, self.bin_height / 2])  
+        self.bin_position = np.array([0.0, 3.0, self.bin_height / 2])
+
+
         
         # Create markers for the bin
         self.marker_outer = self.create_cylinder_marker(

@@ -106,7 +106,7 @@ class BallEngineNode(Node):
         task_space_vel = np.zeros(3)
         V_Z_MAX = 5
         task_space_vel[2] = np.random.random_sample() * V_Z_MAX - V_Z_MAX
-        HORIZONTAL_SPEED = 15
+        HORIZONTAL_SPEED = 10
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
         task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
 

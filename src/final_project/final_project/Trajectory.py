@@ -73,15 +73,20 @@ class Trajectory():
 
         self.q0 = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
         self.qd = self.q0
-        self.p_goal = np.array([0.0, 0.55, 1.0])
-        self.v_goal = np.array([0.0, 0.0, 0.0])
+        self.p0 = np.array([0.0, 0.55, 1.0])
+        self.p_goal = self.p0.copy()
+        self.v_init = np.zeros(3)
+        self.v_goal = np.zeros(3)
         self.R_goal = np.eye(3)
+
         self.t_hit = 0
         self.t_start = 0
         self.p_start = np.zeros(3)
         self.pd = np.zeros(3)
         self.v_start = np.zeros(3)
         self.vd = np.zeros(3)
+
+        self.return_to_p0_time = 1
 
     def jointnames(self):
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
@@ -113,12 +118,16 @@ class Trajectory():
             self.v_start = self.vd
             
         # Compute the desired position and velocity
-        pd, vd = self.pd, np.zeros(3)
         t_action = t-self.t_start
         if self.t_hit > 0 and t_action < self.t_hit:
             pd, vd = spline(t_action, self.t_hit, \
                             self.p_start, self.p_goal, \
                             self.v_start, self.v_goal)
+        elif t_action >= self.t_hit:
+            pd, vd = goto(t_action-self.t_hit, self.return_to_p0_time, self.p_goal, self.p0)
+        else:
+            pd, vd = self.p0, np.zeros(3)
+        
         Rd = self.R_goal
         wd = np.zeros(3)
 
@@ -178,14 +187,14 @@ class Trajectory():
         if not found_hit:
             return
 
-        t_hit_to_target = 2 # time to hit the target from the point of hitting the ball (arbitrary value)
+        t_hit_to_target = 0.5 # time to hit the target from the point of hitting the ball (arbitrary value)
         # now we find the desired velocity OF THE BALL after being hit
-        v_desired = np.zeros(3)
         p_delta = p_target - best_p
         v_desired = (p_delta - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target
 
         # desired velocity of the end effector as it hits the ball
         v_paddle = v_desired - best_v
+        # v_paddle = v_desired
 
         # z-axis should be aligned with v_paddle
         z = v_paddle / np.linalg.norm(v_paddle)
