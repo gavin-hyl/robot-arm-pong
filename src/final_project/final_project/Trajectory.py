@@ -64,39 +64,30 @@ def repulsion(q, wristchain, elbowchain):
 class Trajectory():
     # Initialization.
     def __init__(self, node):
-        # Set up the intermediate kinematic chain objects.
         self.chain5 = KinematicChain(
             node, 'world', 'link5', self.jointnames()[0:5])
         self.chain4 = KinematicChain(
             node, 'world', 'link4', self.jointnames()[0:4])
         
-        # Set up the kinematic chain object.
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
 
         self.q0 = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
         self.qd = self.q0
-        self.p0 = np.array([0.0, 0.55, 1.0])
-        self.R0 = np.eye(3)
-
-        self.P_LEFT = np.array([0.3, 0.5, 0.15])
-        self.R_LEFT = np.array(
-            [[0, 0, -1],
-             [1, 0, 0],
-             [0, -1, 0]]
-        )
-        self.P_RIGHT = np.array([-0.3, 0.5, 0.15])
-        self.R_RIGHT = np.eye(3)
-
-        # FOR BALL HITTING
-        self.ball_threshold = 1.0  # Distance threshold to detect the ball
-        self.paddle_velocity = 0.1  # Velocity of the paddle to hit the ball
+        self.p_goal = np.array([0.0, 0.55, 1.0])
+        self.v_goal = np.array([0.0, 0.0, 0.0])
+        self.R_goal = np.eye(3)
+        self.t_hit = 0
+        self.t_start = 0
+        self.p_start = np.zeros(3)
+        self.pd = np.zeros(3)
+        self.v_start = np.zeros(3)
+        self.vd = np.zeros(3)
 
     def jointnames(self):
-        # Return a list of joint names FOR THE EXPECTED URDF!
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
 
     # Evaluation
-    def evaluate(self, t, dt, ball_pos, ball_vel):
+    def evaluate(self, t, dt, ball_pos, ball_vel, goal_pos, regenerated):
         """Compute the desired joint/task positions and velocities, as well as the orientation and angular velocity.
 
         Args:
@@ -109,27 +100,104 @@ class Trajectory():
             (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
         """
 
+        # Get information about the kinematic chain
         ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
-        pd = self.p0
-        vd = np.zeros(3)
-
-        Rd = Rotx(0.3 * np.pi)
+        msg_str = None
+        
+        # check if the ball has been regenerated
+        if regenerated:
+            msg_str = "Ball has been regenerated"
+            self.calc_goal(ball_pos, ball_vel, goal_pos)
+            self.t_start = t
+            self.p_start = ptip
+            self.v_start = self.vd
+            
+        # Compute the desired position and velocity
+        pd, vd = self.pd, np.zeros(3)
+        t_action = t-self.t_start
+        if self.t_hit > 0 and t_action < self.t_hit:
+            pd, vd = spline(t_action, self.t_hit, \
+                            self.p_start, self.p_goal, \
+                            self.v_start, self.v_goal)
+        Rd = self.R_goal
         wd = np.zeros(3)
 
+        # Compte xdot
         Jac = np.vstack((Jv, Jw))
         xd_dot = np.concatenate((vd, wd))
 
+        # Compute error
         p_error = pd - ptip
         R_error = 0.5 * (np.cross(Rtip[:,0], Rd[:,0]) + np.cross(Rtip[:,1], Rd[:,1]) + np.cross(Rtip[:,2], Rd[:,2]))
         error = np.concatenate((p_error, R_error))
 
+        # Compute qdot
         LAM = 20
         qddot = np.linalg.pinv(Jac) @ (xd_dot + LAM * error)
 
+        # Integrate qdot
         self.qd += qddot * dt
-        qd = self.qd
+        self.vd = vd
+        self.pd = pd
 
-        return (qd, qddot, pd, vd, Rd, wd)
+        return (self.qd, qddot, pd, vd, Rd, wd), msg_str
+    
+
+    def calc_goal(self, p_ball, v_ball, p_target):
+        """Calculate the desired position and orientation of the end effector to hit the target.
+
+        Args:
+            p_ball (array): the position of the ball
+            v_ball (array): the velocity of the ball
+            p_target (array): the position of the target
+
+        Returns:
+            None (attributes are updated)
+        """
+        # Assuming the task space is a sphere
+        TASK_SPACE_R = 0.5
+        TASK_SPACE_P = np.array([0, 0, TASK_SPACE_R * 2])
+
+        # Forward integrate the velocity of the ball
+        # find the point where the ball is closest to sphere defined by the center of the task space
+        # and 1/2 radius away from the center (arbitrary criteria for now, can engineer a cost later)
+        dt = 0.01
+        found_hit = False
+        gravity = np.array([0, 0, -9.8])
+        for t in np.arange(0, 3, dt): # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, and we choose a time value that's larger than that to capture the full trajectory.
+            p_ball += v_ball * dt
+            v_ball += gravity * dt
+            r = np.linalg.norm(p_ball - TASK_SPACE_P)
+            if r < TASK_SPACE_R * 0.9 and p_ball[2] > 0:
+                best_p = p_ball
+                best_t = t
+                best_v = v_ball
+                found_hit = True
+                break
+
+        if not found_hit:
+            return
+
+        t_hit_to_target = 2 # time to hit the target from the point of hitting the ball (arbitrary value)
+        # now we find the desired velocity OF THE BALL after being hit
+        v_desired = np.zeros(3)
+        p_delta = p_target - best_p
+        v_desired = (p_delta - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target
+
+        # desired velocity of the end effector as it hits the ball
+        v_paddle = v_desired - best_v
+
+        # z-axis should be aligned with v_paddle
+        z = v_paddle / np.linalg.norm(v_paddle)
+
+        # we should do something about the x and y axis, but right now we test the other functionality first
+        pass
+
+        self.p_goal = best_p
+        self.v_goal = v_paddle
+        self.R_goal = np.eye(3)
+        self.t_hit = best_t
+        print(best_t)
 
 
 #

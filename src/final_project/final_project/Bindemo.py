@@ -33,6 +33,10 @@ class BinEngineNode(Node):
             PoseStamped, '/ball_position', self.ball_position_callback, 10
         )
         
+        self.pub_goal_pos = self.create_publisher(
+            PoseStamped, '/goal_position', 10
+        )
+
         self.get_logger().info("Publishing the bin visualization markers to RVIZ")
         
         # Bin parameters
@@ -99,8 +103,10 @@ class BinEngineNode(Node):
 
     def move_bin_randomly(self):
         """Move the bin to a random horizontal position."""
-        self.bin_position[0] = np.random.uniform(-2.0, 2.0)  # Random x-position
-        self.bin_position[1] = np.random.uniform(2.0, 5.0)   # Random y-position
+        RAND_POS_MAX = 2.0
+        self.bin_position[0] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
+        self.bin_position[1] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
+        self.bin_position[2] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
         self.get_logger().info(f"Bin moved to new position: {self.bin_position}")
 
     def shutdown(self):
@@ -122,6 +128,14 @@ class BinEngineNode(Node):
         self.marker_outer.header.stamp = self.get_clock().now().to_msg()
         self.marker_inner.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(self.markerarray)
+
+        # Publish the new bin position as a PoseStamped message
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.pose.position.x = self.bin_position[0]
+        msg.pose.position.y = self.bin_position[1]
+        msg.pose.position.z = self.bin_position[2]
+        self.pub_goal_pos.publish(msg)
 
 
 def main(args=None):

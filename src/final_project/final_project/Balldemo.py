@@ -16,7 +16,7 @@ from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
 from geometry_msgs.msg          import Point, Vector3, Quaternion
 from geometry_msgs.msg          import PoseStamped, TwistStamped
-from std_msgs.msg               import ColorRGBA
+from std_msgs.msg               import ColorRGBA, Bool
 from visualization_msgs.msg     import Marker
 from visualization_msgs.msg     import MarkerArray
 from .TransformHelpers          import *
@@ -46,6 +46,10 @@ class BallEngineNode(Node):
         self.sub_twist = self.create_subscription(
             TwistStamped, '/twist', self.twist_callback, 10)
         
+        self.pub_regenerated = self.create_publisher(
+            Bool, '/ball_regeneration', 10
+        )
+
         self.get_logger().info("Subscribed to /pose and /twist topics")
         
         self.restitution = 1
@@ -57,6 +61,7 @@ class BallEngineNode(Node):
 
         # Initialize the ball position, velocity, set the acceleration.
         self.a = np.array([0.0, 0.0, -9.81])
+        self.reverse_integration_time = 1
         self.initialize_p_v()
         self.underground_time = 0
 
@@ -96,7 +101,7 @@ class BallEngineNode(Node):
             vec /= np.linalg.norm(vec)
             return vec
         TASK_SPACE_RADIUS = 0.5
-        task_space_pos = rand_unit_vec() * TASK_SPACE_RADIUS + np.array([0, 0, TASK_SPACE_RADIUS * 2])
+        task_space_pos = rand_unit_vec() * TASK_SPACE_RADIUS / 2 + np.array([0, 0, TASK_SPACE_RADIUS * 2])
         
         task_space_vel = np.zeros(3)
         V_Z_MAX = 5
@@ -106,10 +111,11 @@ class BallEngineNode(Node):
         task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
 
         # Integrate backwards
-        REVERSE_INTEGRATION_TIME = 1
-        self.p = task_space_pos - REVERSE_INTEGRATION_TIME * task_space_vel + 0.5 * self.a * REVERSE_INTEGRATION_TIME**2
-        self.v = task_space_vel - self.a * REVERSE_INTEGRATION_TIME
+        self.p = task_space_pos - self.reverse_integration_time * task_space_vel \
+                    + 0.5 * self.a * self.reverse_integration_time**2
+        self.v = task_space_vel - self.a * self.reverse_integration_time
         self.underground_time = 0
+        self.pub_regenerated.publish(Bool(data=True))
 
 
     # Shutdown
@@ -129,7 +135,7 @@ class BallEngineNode(Node):
 
         if self.p[2] < self.radius:
             self.underground_time += self.dt
-            if self.underground_time > 2:
+            if self.underground_time > 1.5 * self.reverse_integration_time:
                 self.initialize_p_v()
 
         # check for collision with the paddle
@@ -141,9 +147,7 @@ class BallEngineNode(Node):
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
-        #####################
         # self.marker.id += 1
-        #####################
 
         # Update the message and publish.
         self.marker.header.stamp  = self.now().to_msg()

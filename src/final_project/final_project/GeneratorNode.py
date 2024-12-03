@@ -46,6 +46,7 @@ from math import nan
 
 from asyncio            import Future
 from rclpy.node         import Node
+from std_msgs.msg       import Bool
 from geometry_msgs.msg  import PoseStamped, TwistStamped
 from geometry_msgs.msg  import TransformStamped
 from sensor_msgs.msg    import JointState
@@ -82,6 +83,9 @@ class RobotControllerNode(Node):
         self.sub_ball_pos = self.create_subscription(PoseStamped, '/ball_position', self.ball_pos_callback, 10)
         self.sub_ball_vel = self.create_subscription(TwistStamped, '/ball_velocity', self.ball_vel_callback, 10)
 
+        self.sub_goal_pos = self.create_subscription(PoseStamped, '/goal_position', self.goal_pos_callback, 10)
+        self.sub_regenerated = self.create_subscription(Bool, '/ball_regeneration', self.regenerated_callback, 10)
+
         # Initialize a regular and static transform broadcaster
         self.tfbroadcaster = tf2_ros.TransformBroadcaster(self)
 
@@ -108,6 +112,8 @@ class RobotControllerNode(Node):
         
         self.ball_pos = np.zeros(3)
         self.ball_vel = np.zeros(3)
+        self.goal_pos = np.zeros(3)
+        self.regenerated = False
 
     # Shutdown
     def shutdown(self):
@@ -136,7 +142,11 @@ class RobotControllerNode(Node):
         self.t += self.dt
 
         # Compute the trajectory for this time.
-        des = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel)
+        regenerated = self.regenerated
+        self.regenerated = False    # avoid race condition
+        des, msg_str = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel, self.goal_pos, regenerated)
+        if msg_str is not None:
+            self.get_logger().info(msg_str)
         if des is None:
             self.future.set_result("Trajectory has ended")
             return
@@ -232,3 +242,9 @@ class RobotControllerNode(Node):
     
     def ball_vel_callback(self, msg):
         self.ball_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
+
+    def goal_pos_callback(self, msg):
+        self.goal_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+
+    def regenerated_callback(self, msg):
+        self.regenerated = True
