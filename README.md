@@ -14,4 +14,5 @@ ros2 launch final_project final_project.launch.py
 TODOs (by Thursday night)
 - prismatic joint for the tip position (2 joints for where to hit)
     - secondary task for tip
+- velocity of hitting is free (right now we only have nominal velocity, if we don't enforce these constraints then we can choose different paths)
 - Tip trajectory formulation asap
