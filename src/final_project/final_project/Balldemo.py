@@ -56,12 +56,11 @@ class BallEngineNode(Node):
         
 
         # Initialize the ball position, velocity, set the acceleration.
-        self.radius = 0.05
+        self.a = np.array([0.0, 0.0, -9.81])
+        self.initialize_p_v()
+        self.underground_time = 0
 
-        self.p = np.array([0.0, 0.0, 0.0])
-        self.v = np.array([0.0, 0.0, 0.0])
-        self.ball_pos()
-        self.a = np.array([0.0, 0.0, -9.81      ])
+        self.radius = 0.05
 
         # Create the sphere marker.
         diam        = 2 * self.radius
@@ -89,15 +88,29 @@ class BallEngineNode(Node):
         # Create a timer to keep calling update().
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate} Hz)")
+
+    def initialize_p_v(self):
+        # Choose a random point in the task space (simplified to be a sphere)
+        def rand_unit_vec():
+            vec = np.random.rand(3) * 2 - 1
+            vec /= np.linalg.norm(vec)
+            return vec
+        TASK_SPACE_RADIUS = 0.5
+        task_space_pos = rand_unit_vec() * TASK_SPACE_RADIUS + np.array([0, 0, TASK_SPACE_RADIUS * 2])
         
-    def ball_pos(self):
-        offset_from_paddle = np.array([np.random.uniform(-5, 5), np.random.uniform(-5, 5), self.radius + 2])
-        self.p = self.paddle_pos + offset_from_paddle
-        
-        direction_to_paddle = self.paddle_pos - self.p 
-        direction_to_paddle = direction_to_paddle / np.linalg.norm(direction_to_paddle)
-        
-        self.v = np.random.uniform(1.0, 2.0) * direction_to_paddle
+        task_space_vel = np.zeros(3)
+        V_Z_MAX = 5
+        task_space_vel[2] = np.random.random_sample() * V_Z_MAX - V_Z_MAX
+        HORIZONTAL_SPEED = 15
+        task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
+        task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
+
+        # Integrate backwards
+        REVERSE_INTEGRATION_TIME = 1
+        self.p = task_space_pos - REVERSE_INTEGRATION_TIME * task_space_vel + 0.5 * self.a * REVERSE_INTEGRATION_TIME**2
+        self.v = task_space_vel - self.a * REVERSE_INTEGRATION_TIME
+        self.underground_time = 0
+
 
     # Shutdown
     def shutdown(self):
@@ -114,12 +127,10 @@ class BallEngineNode(Node):
         self.v += self.dt * self.a
         self.p += self.dt * self.v
 
-        # check for collision with the ground
         if self.p[2] < self.radius:
-            self.p[2] = self.radius + (self.radius - self.p[2])
-            self.v[2] *= -self.restitution
-            self.v[0] *= self.restitution   # make the ball lose energy on other axes as well
-            self.v[1] *= self.restitution
+            self.underground_time += self.dt
+            if self.underground_time > 2:
+                self.initialize_p_v()
 
         # check for collision with the paddle
         if np.linalg.norm(self.paddle_pos - self.p) < self.radius * 2:

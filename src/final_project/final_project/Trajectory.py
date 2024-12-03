@@ -109,19 +109,9 @@ class Trajectory():
             (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
         """
 
-        # Target position for the paddle to hit the ball
-        paddle_target = ball_pos + ball_vel * dt  # Predict ball's future position
-        paddle_target[2] += 1.5  # Adjust height to ensure hitting
-
-        # Determine if the ball is close enough to hit
         ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
-        if np.linalg.norm(ptip - ball_pos) < self.ball_threshold:
-            pd = paddle_target
-            vd = self.paddle_velocity * (paddle_target - ptip) / np.linalg.norm(paddle_target - ptip)
-        else:
-            # Default trajectory
-            pd = self.p0
-            vd = np.zeros(3)
+        pd = self.p0
+        vd = np.zeros(3)
 
         Rd = Rotx(0.3 * np.pi)
         wd = np.zeros(3)
