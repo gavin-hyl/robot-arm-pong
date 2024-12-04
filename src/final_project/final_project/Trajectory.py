@@ -5,62 +5,14 @@ from std_msgs.msg import Float64
 
 from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
 
-# Grab the utilities
 from .GeneratorNode      import RobotControllerNode
 from .TransformHelpers   import *
 from .TrajectoryUtils    import *
 
-# Grab the general fkin from HW6 P1.
 from .KinematicChain     import KinematicChain
+from .MatrixUtils        import weighted_pinv
 
 
-#
-#   Repulsion Joint Torques
-#
-#   This computes the equivalent joint torques that mimic a repulsion
-#   force between the forearm and the top edge of the wall.  It uses
-#   the kinematic chains to the elbow (4 joints) and wrist (5 joints)
-#   to get the forearm segment.
-#
-def repulsion(q, wristchain, elbowchain):
-    # Compute the wrist and elbow points.
-    (pwrist, _, Jv, Jw) = wristchain.fkin(q[0:5])  # 5 joints
-    (pelbow, _, _, _)   = elbowchain.fkin(q[0:4])  # 4 joints
-
-    # Determine the wall (obstacle) "line"
-    pw = np.array([0, 0, 0.3])
-    dw = np.array([0, 1, 0])
-
-    # Determine the forearm "line"
-    pa = pwrist
-    da = pelbow - pwrist
-
-    # Solve for the closest point on the forearm.
-    a = (pw - pa) @ np.linalg.pinv(np.vstack((-dw, np.cross(dw, da), da)))
-    parm = pa + max(0, min(1, a[2])) * da
-
-    # Solve for the matching wall point.
-    pwall = pw + dw * np.inner(dw, parm-pw) / np.inner(dw, dw)
-
-    # Compute the distance and repulsion force
-    d = np.linalg.norm(parm-pwall)
-    F = (parm-pwall) / d**2
-
-    # Map the repulsion force acting at parm to the equivalent force
-    # and torque actiing at the wrist point.
-    Fwrist = F
-    Twrist = np.cross(parm-pwrist, F)
-
-    # Convert the force/torque to joint torques (J^T).
-    tau = np.vstack((Jv, Jw)).T @ np.concatenate((Fwrist, Twrist))
-
-    # Return the 5 joint torques as part of the 7 full joints.
-    return np.concatenate((tau, np.zeros(2)))
-
-
-#
-#   To the Trajectory Class, add:
-#
 class Trajectory():
     # Initialization.
     def __init__(self, node):
@@ -112,7 +64,7 @@ class Trajectory():
         # check if the ball has been regenerated
         if regenerated:
             msg_str = "Ball has been regenerated"
-            self.calc_goal(ball_pos, ball_vel, goal_pos)
+            self.update_goal(ball_pos, ball_vel, goal_pos)
             self.t_start = t
             self.p_start = ptip
             self.v_start = self.vd
@@ -142,7 +94,8 @@ class Trajectory():
 
         # Compute qdot
         LAM = 20
-        qddot = np.linalg.pinv(Jac) @ (xd_dot + LAM * error)
+        GAMMA = 0.1
+        qddot = weighted_pinv(Jac, GAMMA) @ (xd_dot + LAM * error)
 
         # Integrate qdot
         self.qd += qddot * dt
@@ -152,7 +105,7 @@ class Trajectory():
         return (self.qd, qddot, pd, vd, Rd, wd), msg_str
     
 
-    def calc_goal(self, p_ball, v_ball, p_target):
+    def update_goal(self, p_ball, v_ball, p_target):
         """Calculate the desired position and orientation of the end effector to hit the target.
 
         Args:
@@ -206,7 +159,33 @@ class Trajectory():
         self.v_goal = v_paddle
         self.R_goal = np.eye(3)
         self.t_hit = best_t
-        print(best_t)
+
+
+    def ikin(self, p_goal, R_goal):
+        """Compute the inverse kinematics for the given position and orientation.
+
+        Args:
+            p_goal (array): the goal position
+            R_goal (array): the goal orientation
+
+        Returns:
+            array: the joint positions
+        """
+        MAX_ITER = 20
+        # Newton-Raphson iteration to convergence
+        q = self.qd.copy()
+        prev_q = q.copy()
+        for _ in range(MAX_ITER):
+            p, R, Jv, Jw = self.chain.fkin(q)
+            p_error = p_goal - p
+            R_error = 0.5 * (np.cross(R[:,0], R_goal[:,0]) + np.cross(R[:,1], R_goal[:,1]) + np.cross(R[:,2], R_goal[:,2]))
+            error = np.concatenate((p_error, R_error))
+            Jac = np.vstack((Jv, Jw))
+            q += weighted_pinv(Jac) @ Jac.T @ error
+            if np.linalg.norm(q - prev_q) < 1e-6:
+                break
+            prev_q = q.copy()
+        return q
 
 
 #
