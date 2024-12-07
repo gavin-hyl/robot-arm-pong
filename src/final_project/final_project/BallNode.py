@@ -127,7 +127,6 @@ class BallEngineNode(Node):
     def now(self):
         return self.start + Duration(seconds=self.t)
 
-    # Update - send a new joint command every time step.
     def update(self):
         self.t += self.dt
         self.v += self.dt * self.a
@@ -143,7 +142,7 @@ class BallEngineNode(Node):
             n = self.paddle_z
             delta_v = self.v - self.paddle_vel
             delta_v_proj = np.dot(delta_v, n) * n
-            self.v -= 2 * self.restitution * delta_v_proj
+            self.v += -2 * self.restitution * delta_v_proj
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.

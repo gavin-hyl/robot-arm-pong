@@ -155,8 +155,8 @@ class Trajectory():
         y = np.cross(z, x)
         R_impact = np.vstack((x, y, z)).T
 
-        # express it in the tip frame 
-        pd_paddle_at_impact = z * 1/4 * np.linalg.norm(pd_ball_after_impact - pd_ball_impact) \
+        # express it in the tip frame
+        pd_paddle_at_impact = z * 1/2 * (np.dot(z, pd_ball_impact+ pd_ball_after_impact))\
                             + y * 0 \
                             + x * 0
 
