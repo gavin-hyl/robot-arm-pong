@@ -108,7 +108,7 @@ class BinEngineNode(Node):
         RAND_POS_MAX = 2.0
         self.bin_position[0] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
         self.bin_position[1] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
-        self.bin_position[2] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
+        self.bin_position[2] = np.random.uniform(0, RAND_POS_MAX)
         self.get_logger().info(f"Bin moved to new position: {self.bin_position}")
 
     def shutdown(self):

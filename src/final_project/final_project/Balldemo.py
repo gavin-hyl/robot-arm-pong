@@ -100,15 +100,15 @@ class BallEngineNode(Node):
             vec = np.random.rand(3) * 2 - 1
             vec /= np.linalg.norm(vec)
             return vec
-        TASK_SPACE_RADIUS = 0.5
+        TASK_SPACE_RADIUS = 0.3
         task_space_pos = rand_unit_vec() * TASK_SPACE_RADIUS / 2 + np.array([0, 0, TASK_SPACE_RADIUS * 2])
         
         task_space_vel = np.zeros(3)
         V_Z_MAX = 5
         task_space_vel[2] = np.random.random_sample() * V_Z_MAX - V_Z_MAX
-        HORIZONTAL_SPEED = 10
+        HORIZONTAL_SPEED = 5
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
-        task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED
+        task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * (-1)
 
         # Integrate backwards
         self.p = task_space_pos - self.reverse_integration_time * task_space_vel \
