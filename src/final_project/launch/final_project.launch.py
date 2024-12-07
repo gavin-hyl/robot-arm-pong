@@ -38,21 +38,21 @@ def generate_launch_description():
         on_exit    = Shutdown())
     
     node_trajectory = Node(
-        name       = 'traj', 
+        name       = 'trajectory', 
         package    = 'final_project',
         executable = 'trajectory',
         output     = 'screen')
     
     ball_viz = Node(
-        name       = 'ball_demo', 
+        name       = 'balls', 
         package    = 'final_project',
-        executable = 'ball_demo',
+        executable = 'balls',
         output     = 'screen')
     
     bin_viz = Node(
-        name       = 'bin_demo', 
+        name       = 'target', 
         package    = 'final_project',
-        executable = 'bin_demo',
+        executable = 'target',
         output     = 'screen')
 
     return LaunchDescription([

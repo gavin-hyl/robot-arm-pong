@@ -45,8 +45,6 @@ class BinEngineNode(Node):
         self.bin_wall_thickness = 0.1  
         self.bin_position = np.array([0.0, 3.0, self.bin_height / 2])
 
-
-        
         # Create markers for the bin
         self.marker_outer = self.create_cylinder_marker(
             id=1,
@@ -73,6 +71,7 @@ class BinEngineNode(Node):
         # Create a timer to keep calling update()
         self.create_timer(self.dt, self.update)
         self.get_logger().info(f"Running with dt of {self.dt} seconds ({rate} Hz)")
+
 
     def create_cylinder_marker(self, id, scale, color):
         """Helper function to create a cylinder marker."""

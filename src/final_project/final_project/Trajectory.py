@@ -67,15 +67,15 @@ class Trajectory():
             self.t_start = t
             self.q_start = self.q.copy()
             self.qd_start = self.qd.copy()
-            p_end, pd_end, R_end, w_end, t_to_end = self.compute_impact_conditions(ball_pos, ball_vel, goal_pos)
-            self.t_end = t + t_to_end
+            p_end, pd_end, R_end, w_end, t_to_impact = self.compute_impact_conditions(ball_pos, ball_vel, goal_pos)
+            self.t_end = t + t_to_impact
             self.q_end, self.qd_end, err_magnitudes = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
                 msg_str += "Failed to find a valid trajectory to the ball"
                 for i, err in enumerate(err_magnitudes):
                     msg_str += f"Error magnitude at iteration {i}: {err}\n"
-        elif self.t_end is None or t > self.t_end:
+        if self.t_end is None or t > self.t_end:
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
 
@@ -121,7 +121,7 @@ class Trajectory():
         TASK_SPACE_P = np.array([0, 0, TASK_SPACE_R * 2])
 
         # Forward integrate the velocity of the ball
-        dt = 0.005
+        dt = 0.01
         found_impact_position = False
         gravity = np.array([0, 0, -9.8])
         for t in np.arange(0, 3, dt):
