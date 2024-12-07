@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'trajectory = final_project.Trajectory:main',
+            'controller = final_project.Controller:main',
             'balls = final_project.BallNode:main',
             'target = final_project.TargetNode:main',
         ],

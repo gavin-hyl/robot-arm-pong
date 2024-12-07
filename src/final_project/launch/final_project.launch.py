@@ -37,10 +37,10 @@ def generate_launch_description():
         arguments  = ['-d', rvizcfg],
         on_exit    = Shutdown())
     
-    node_trajectory = Node(
-        name       = 'trajectory', 
+    node_controller = Node(
+        name       = 'controller', 
         package    = 'final_project',
-        executable = 'trajectory',
+        executable = 'controller',
         output     = 'screen')
     
     ball_viz = Node(
@@ -58,7 +58,7 @@ def generate_launch_description():
     return LaunchDescription([
         node_robot_state_publisher,
         node_rviz,
-        node_trajectory,
+        node_controller,
         ball_viz,
         bin_viz
     ])

@@ -1,11 +1,7 @@
 import rclpy
 import numpy as np
 
-from std_msgs.msg import Float64
-
-from math import pi, sin, cos, acos, atan2, sqrt, fmod, exp
-
-from .GeneratorNode      import RobotControllerNode
+from .ControllerNode      import RobotControllerNode
 from .TransformHelpers   import *
 from .TrajectoryUtils    import *
 
@@ -14,10 +10,12 @@ from .MatrixUtils        import weighted_pinv
 
 
 class Trajectory():
-    # Initialization.
+
     def __init__(self, node):
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
 
+        # xd refers to the derivative of x.
+        
         # Idle position
         self.q0 = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
         self.qd0 = np.zeros(7)
@@ -27,7 +25,7 @@ class Trajectory():
         self.R0 = R
         self.w0 = np.zeros(3)
 
-        # Initial joint positions and velocities. xd refers to the derivative of x.
+        # Initial joint positions and velocities.
         self.q = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
         self.qd = np.zeros(7)
         self.p = np.array([0.0, 0.55, 1.0])
@@ -56,9 +54,11 @@ class Trajectory():
             dt (float): the time step
             ball_pos (array): the ball position
             ball_vel (array): the ball velocity
+            goal_pos (array): the goal position
+            regenerated (bool): whether the ball has been regenerated in the last cycle
 
         Returns:
-            (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
+            (array, array, array, array, array, array, str): q, qd, p, pd, R, w, msg_str
         """
         msg_str = ""
 
@@ -97,6 +97,12 @@ class Trajectory():
     
 
     def set_idle(self, t, t_to_idle=1.5):
+        """Set the appropriate variables to return to the idle position.
+
+        Args:
+            t (float): the current time
+            t_to_idle (float, optional): Prescribed time to return to idle. Defaults to 1.5.
+        """
         self.t_start = t
         self.q_start = self.q.copy()
         self.qd_start = self.qd.copy()
@@ -163,7 +169,7 @@ class Trajectory():
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
 
 
-    # CHANGE THIS FUNCTION TO CHANGE THE CALCULATED END POSITION, WHICH CHANGES THE TRAJECTORY
+    # CHANGE THIS FUNCTION TO CHANGE THE CALCULATED END q, WHICH CHANGES THE TRAJECTORY
     def ikin(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
 
