@@ -150,7 +150,8 @@ class Trajectory():
 
         # z-axis should be aligned with v_paddle
         # z = pd_paddle_at_impact / np.linalg.norm(pd_paddle_at_impact)
-        z = -pd_ball_impact / np.linalg.norm(pd_ball_impact)
+        z = pd_ball_impact - pd_ball_after_impact
+        z = z / np.linalg.norm(z)
         y_guess = np.array([0, 1, 0])
         x = np.cross(y_guess, z)
         x = x / np.linalg.norm(x)
