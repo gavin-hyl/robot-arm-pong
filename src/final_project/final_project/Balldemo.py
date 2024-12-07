@@ -60,7 +60,7 @@ class BallEngineNode(Node):
         
 
         # Initialize the ball position, velocity, set the acceleration.
-        self.a = np.array([0.0, 0.0, -9.81])
+        self.a = np.array([0.0, 0.0, -9.8])
         self.reverse_integration_time = 1
         self.initialize_p_v()
         self.underground_time = 0

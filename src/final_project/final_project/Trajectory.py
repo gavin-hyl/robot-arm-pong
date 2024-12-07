@@ -69,7 +69,7 @@ class Trajectory():
             self.qd_start = self.qd.copy()
             p_end, pd_end, R_end, w_end, t_to_end = self.compute_impact_conditions(ball_pos, ball_vel, goal_pos)
             self.t_end = t + t_to_end
-            self.q_end, self.qd_end, err_magnitudes = self.ikin_q_qd(p_end, pd_end, R_end, w_end)
+            self.q_end, self.qd_end, err_magnitudes = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
                 msg_str += "Failed to find a valid trajectory to the ball"
@@ -142,15 +142,12 @@ class Trajectory():
             return self.p0, self.pd0, self.R0, self.w0, 1
         
         p_impact_to_target = p_target - p_impact
-        t_hit_to_target = 0.2 * np.linalg.norm(p_impact_to_target)
+        t_hit_to_target = 0.5
         pd_ball_after_impact = (p_impact_to_target - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target # delta p = vt + 1/2 at^2
-        # pd_paddle_at_impact = -1/4 * pd_ball_impact
-        # pd_paddle_at_impact = 1/2 * (pd_ball_after_impact + pd_ball_impact)
-        pd_paddle_at_impact = np.zeros(3)
 
         # z-axis should be aligned with v_paddle
         # z = pd_paddle_at_impact / np.linalg.norm(pd_paddle_at_impact)
-        z = pd_ball_impact - pd_ball_after_impact
+        z = pd_ball_after_impact - pd_ball_impact
         z = z / np.linalg.norm(z)
         y_guess = np.array([0, 1, 0])
         x = np.cross(y_guess, z)
@@ -158,11 +155,16 @@ class Trajectory():
         y = np.cross(z, x)
         R_impact = np.vstack((x, y, z)).T
 
+        # express it in the tip frame 
+        pd_paddle_at_impact = z * 1/4 * np.linalg.norm(pd_ball_after_impact - pd_ball_impact) \
+                            + y * 0 \
+                            + x * 0
+
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
 
 
     # CHANGE THIS FUNCTION TO CHANGE THE CALCULATED END POSITION, WHICH CHANGES THE TRAJECTORY
-    def ikin_q_qd(self, p_goal, pd_goal, R_goal, w_goal):
+    def ikin(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
 
         Args:
@@ -188,35 +190,13 @@ class Trajectory():
             Jac = np.vstack((Jv, Jw))
             q += weighted_pinv(Jac) @ error 
             error_magnitudes.append(np.linalg.norm(error))
-            if np.linalg.norm(error) < 1e-3:
+            if np.linalg.norm(error) < 1e-5:
                 converged = True
                 break
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
         qd = weighted_pinv(Jac) @ np.concatenate((pd_goal, w_goal))
 
-        # # Get information about the kinematic chain
-        # ptip, Rtip, Jv, Jw = self.chain.fkin(self.q)
-        
-        # # Compte xdot
-        # Jac = np.vstack((Jv, Jw))
-        # xd_dot = np.concatenate((pd, w))
-
-        # # Compute error
-        # p_error = p - ptip
-        # R_error = 0.5 * (np.cross(Rtip[:,0], R[:,0]) + np.cross(Rtip[:,1], R[:,1]) + np.cross(Rtip[:,2], R[:,2]))
-        # error = np.concatenate((p_error, R_error))
-
-        # # Compute qdot
-        # LAM = 20
-        # GAMMA = 0.1
-        # qd = weighted_pinv(Jac, GAMMA) @ (xd_dot + LAM * error)
-
-        # # Integrate qdot
-        # self.q += qd * dt
-        # self.pd = pd
-        # self.p = p
-    
         if converged:
             return q, qd, None
         else:

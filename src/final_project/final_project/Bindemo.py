@@ -95,20 +95,22 @@ class BinEngineNode(Node):
         """Update ball position based on PoseStamped message."""
         self.ball_position = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
 
+
     def check_collision(self):
         """Check if the ball has collided with the bin."""
-        horizontal_distance = np.linalg.norm(self.ball_position[:2] - self.bin_position[:2])
-        # Check if the ball's position falls within the bin's radius
-        if horizontal_distance <= self.bin_radius and self.ball_position[2] <= self.bin_height:
+        dist_horizontal = np.linalg.norm(self.ball_position[:2] - self.bin_position[:2])
+        dist_vertical = np.abs(self.ball_position[2] - self.bin_position[2])
+        if dist_horizontal < self.bin_radius + self.bin_wall_thickness and dist_vertical < self.bin_height / 2:
+            self.get_logger().info(f"Ball collided with the bin at position: {self.ball_position}")
             return True
         return False
 
+
     def move_bin_randomly(self):
         """Move the bin to a random horizontal position."""
-        RAND_POS_MAX = 2.0
-        self.bin_position[0] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
-        self.bin_position[1] = np.random.uniform(-RAND_POS_MAX, RAND_POS_MAX)
-        self.bin_position[2] = np.random.uniform(0, RAND_POS_MAX)
+        self.bin_position[0] = np.random.uniform(-4, 4)
+        self.bin_position[1] = np.random.uniform(2, 4)
+        self.bin_position[2] = np.random.uniform(0, 4)
         self.get_logger().info(f"Bin moved to new position: {self.bin_position}")
 
     def shutdown(self):
