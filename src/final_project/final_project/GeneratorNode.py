@@ -145,7 +145,7 @@ class RobotControllerNode(Node):
         regenerated = self.regenerated
         self.regenerated = False    # avoid race condition
         des, msg_str = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel, self.goal_pos, regenerated)
-        if msg_str is not None:
+        if msg_str is not None and len(msg_str) > 0:
             self.get_logger().info(msg_str)
         if des is None:
             self.future.set_result("Trajectory has ended")

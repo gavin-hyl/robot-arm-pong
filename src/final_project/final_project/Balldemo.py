@@ -108,7 +108,7 @@ class BallEngineNode(Node):
         task_space_vel[2] = np.random.random_sample() * V_Z_MAX - V_Z_MAX
         HORIZONTAL_SPEED = 10
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
-        task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
+        task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED
 
         # Integrate backwards
         self.p = task_space_pos - self.reverse_integration_time * task_space_vel \

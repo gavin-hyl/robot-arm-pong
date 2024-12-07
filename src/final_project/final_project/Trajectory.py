@@ -16,34 +16,38 @@ from .MatrixUtils        import weighted_pinv
 class Trajectory():
     # Initialization.
     def __init__(self, node):
-        self.chain5 = KinematicChain(
-            node, 'world', 'link5', self.jointnames()[0:5])
-        self.chain4 = KinematicChain(
-            node, 'world', 'link4', self.jointnames()[0:4])
-        
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
 
+        # Idle position
         self.q0 = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
-        self.qd = self.q0
-        self.p0 = np.array([0.0, 0.55, 1.0])
-        self.p_goal = self.p0.copy()
-        self.v_init = np.zeros(3)
-        self.v_goal = np.zeros(3)
-        self.R_goal = np.eye(3)
+        self.qd0 = np.zeros(7)
+        p, R, _, _ = self.chain.fkin(self.q0)
+        self.p0 = p
+        self.pd0 = np.zeros(3)
+        self.R0 = R
+        self.w0 = np.zeros(3)
 
-        self.t_hit = 0
-        self.t_start = 0
-        self.p_start = np.zeros(3)
+        # Initial joint positions and velocities. xd refers to the derivative of x.
+        self.q = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
+        self.qd = np.zeros(7)
+        self.p = np.array([0.0, 0.55, 1.0])
         self.pd = np.zeros(3)
-        self.v_start = np.zeros(3)
-        self.vd = np.zeros(3)
+        self.R = np.eye(3)
+        self.w = np.zeros(3)
 
-        self.return_to_p0_time = 1
+        # Start and end conditions for the trajectory. We do a joint trajectory, so we only store the joint values.
+        self.t_start = None
+        self.q_start = None
+        self.qd_start = None
 
+        self.t_end = None
+        self.q_end = None
+        self.qd_end = None
+    
     def jointnames(self):
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
 
-    # Evaluation
+
     def evaluate(self, t, dt, ball_pos, ball_vel, goal_pos, regenerated):
         """Compute the desired joint/task positions and velocities, as well as the orientation and angular velocity.
 
@@ -56,112 +60,106 @@ class Trajectory():
         Returns:
             (array, array, array, array, array, array): qd, qddot, pd, vd, Rd, wd
         """
+        msg_str = ""
 
-        # Get information about the kinematic chain
-        ptip, Rtip, Jv, Jw = self.chain.fkin(self.qd)
-        msg_str = None
-        
-        # check if the ball has been regenerated
         if regenerated:
-            msg_str = "Ball has been regenerated"
-            self.update_goal(ball_pos, ball_vel, goal_pos)
+            # if the ball has been regenerated, compute the inverse kinematics to take us there
             self.t_start = t
-            self.p_start = ptip
-            self.v_start = self.vd
-            
-        # Compute the desired position and velocity
-        t_action = t-self.t_start
-        if self.t_hit > 0 and t_action < self.t_hit:
-            pd, vd = spline(t_action, self.t_hit, \
-                            self.p_start, self.p_goal, \
-                            self.v_start, self.v_goal)
-        elif t_action >= self.t_hit:
-            pd, vd = goto(t_action-self.t_hit, self.return_to_p0_time, self.p_goal, self.p0)
-        else:
-            pd, vd = self.p0, np.zeros(3)
+            self.q_start = self.q.copy()
+            self.qd_start = self.qd.copy()
+            p_end, pd_end, R_end, w_end, t_to_end = self.compute_impact_conditions(ball_pos, ball_vel, goal_pos)
+            self.t_end = t + t_to_end
+            self.q_end, self.qd_end, err_magnitudes = self.ikin_q_qd(p_end, pd_end, R_end, w_end)
+            msg_str += f"t_to_end: {t_to_end}\n"
+            if self.q_end is None:
+                self.set_idle(t)
+                msg_str += "Failed to find a valid trajectory to the ball"
+                for i, err in enumerate(err_magnitudes):
+                    msg_str += f"Error magnitude at iteration {i}: {err}\n"
+        elif self.t_end is None or t > self.t_end:
+            # if ANY trajectory has ended, return to idle position
+            self.set_idle(t)
+
+        # Track the trajectory given by t_start, t_end, q_start, q_end, qd_start, qd_end
+        q, qd = spline(t - self.t_start, self.t_end - self.t_start, self.q_start, self.q_end, self.qd_start, self.qd_end)
         
-        Rd = self.R_goal
-        wd = np.zeros(3)
+        p, R, Jv, Jw = self.chain.fkin(q)
+        pd = Jv @ qd
+        w = Jw @ qd
 
-        # Compte xdot
-        Jac = np.vstack((Jv, Jw))
-        xd_dot = np.concatenate((vd, wd))
-
-        # Compute error
-        p_error = pd - ptip
-        R_error = 0.5 * (np.cross(Rtip[:,0], Rd[:,0]) + np.cross(Rtip[:,1], Rd[:,1]) + np.cross(Rtip[:,2], Rd[:,2]))
-        error = np.concatenate((p_error, R_error))
-
-        # Compute qdot
-        LAM = 20
-        GAMMA = 0.1
-        qddot = weighted_pinv(Jac, GAMMA) @ (xd_dot + LAM * error)
-
-        # Integrate qdot
-        self.qd += qddot * dt
-        self.vd = vd
+        self.q = q
+        self.qd = qd
+        self.p = p
         self.pd = pd
+        self.R = R
+        self.w = w
 
-        return (self.qd, qddot, pd, vd, Rd, wd), msg_str
+        return (q, qd, p, pd, R, w), msg_str
     
 
-    def update_goal(self, p_ball, v_ball, p_target):
-        """Calculate the desired position and orientation of the end effector to hit the target.
+    def set_idle(self, t, t_to_idle=1.5):
+        self.t_start = t
+        self.q_start = self.q.copy()
+        self.qd_start = self.qd.copy()
+        self.t_end = t + t_to_idle
+        self.q_end = self.q0
+        self.qd_end = self.qd0
+    
+
+    def compute_impact_conditions(self, p_ball, v_ball, p_target):
+        """Return the task space pose and twist of the end effector at the time of impact.
 
         Args:
-            p_ball (array): the position of the ball
-            v_ball (array): the velocity of the ball
-            p_target (array): the position of the target
+            p_ball (array): the current position of the ball
+            v_ball (array): the current velocity of the ball
+            p_target (array): the target position
 
         Returns:
-            None (attributes are updated)
+            (array, array, array, array, float): p, pd, R, w, t_impact_from_now
         """
         # Assuming the task space is a sphere
         TASK_SPACE_R = 0.5
         TASK_SPACE_P = np.array([0, 0, TASK_SPACE_R * 2])
 
         # Forward integrate the velocity of the ball
-        # find the point where the ball is closest to sphere defined by the center of the task space
-        # and 1/2 radius away from the center (arbitrary criteria for now, can engineer a cost later)
         dt = 0.01
-        found_hit = False
+        found_impact_position = False
         gravity = np.array([0, 0, -9.8])
-        for t in np.arange(0, 3, dt): # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, and we choose a time value that's larger than that to capture the full trajectory.
+        for t in np.arange(0, 3, dt):
+            # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
+            # and we choose a time value that's larger than that to capture the full trajectory.
             p_ball += v_ball * dt
             v_ball += gravity * dt
             r = np.linalg.norm(p_ball - TASK_SPACE_P)
             if r < TASK_SPACE_R * 0.9 and p_ball[2] > 0:
-                best_p = p_ball
-                best_t = t
-                best_v = v_ball
-                found_hit = True
+                p_impact = p_ball
+                t_impact_from_now = t
+                pd_ball_impact = v_ball
+                found_impact_position = True
                 break
 
-        if not found_hit:
-            return
-
+        if not found_impact_position:
+            # if no suitable impact position if found, return to idle position
+            return self.p0, self.pd0, self.R0, self.w0, 1
+        
         t_hit_to_target = 0.5 # time to hit the target from the point of hitting the ball (arbitrary value)
-        # now we find the desired velocity OF THE BALL after being hit
-        p_delta = p_target - best_p
-        v_desired = (p_delta - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target
-
-        # desired velocity of the end effector as it hits the ball
-        v_paddle = v_desired - best_v
-        # v_paddle = v_desired
+        p_impact_to_target = p_target - p_impact
+        pd_ball_after_impact = (p_impact_to_target - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target # (p - gt^2/2) = vt
+        pd_paddle_at_impact = pd_ball_after_impact - pd_ball_impact
 
         # z-axis should be aligned with v_paddle
-        z = v_paddle / np.linalg.norm(v_paddle)
+        z = pd_paddle_at_impact / np.linalg.norm(pd_paddle_at_impact)
+        y_guess = np.array([0, 1, 0])
+        x = np.cross(y_guess, z)
+        x = x / np.linalg.norm(x)
+        y = np.cross(z, x)
+        R_impact = np.vstack((x, y, z)).T
 
-        # we should do something about the x and y axis, but right now we test the other functionality first
-        pass
-
-        self.p_goal = best_p
-        self.v_goal = v_paddle
-        self.R_goal = np.eye(3)
-        self.t_hit = best_t
+        return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
 
 
-    def ikin(self, p_goal, R_goal):
+    # CHANGE THIS FUNCTION TO CHANGE THE CALCULATED END POSITION, WHICH CHANGES THE TRAJECTORY
+    def ikin_q_qd(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
 
         Args:
@@ -169,23 +167,58 @@ class Trajectory():
             R_goal (array): the goal orientation
 
         Returns:
-            array: the joint positions
+            q, qd (array, array): the joint positions and velocities that achieve the desired position and orientation
         """
-        MAX_ITER = 20
-        # Newton-Raphson iteration to convergence
-        q = self.qd.copy()
-        prev_q = q.copy()
+        MAX_ITER = 500
+        converged = False
+        q = self.q.copy()
+
+        error_magnitudes = []
+
         for _ in range(MAX_ITER):
             p, R, Jv, Jw = self.chain.fkin(q)
             p_error = p_goal - p
-            R_error = 0.5 * (np.cross(R[:,0], R_goal[:,0]) + np.cross(R[:,1], R_goal[:,1]) + np.cross(R[:,2], R_goal[:,2]))
+            R_error = 0.5 * (np.cross(R[:,0], R_goal[:,0]) \
+                            + np.cross(R[:,1], R_goal[:,1])\
+                            + np.cross(R[:,2], R_goal[:,2]))
             error = np.concatenate((p_error, R_error))
             Jac = np.vstack((Jv, Jw))
-            q += weighted_pinv(Jac) @ Jac.T @ error
-            if np.linalg.norm(q - prev_q) < 1e-6:
+            q += weighted_pinv(Jac) @ error * 0.5
+            error_magnitudes.append(np.linalg.norm(error))
+            if np.linalg.norm(error) < 1e-3:
+                converged = True
                 break
-            prev_q = q.copy()
-        return q
+        p, R, Jv, Jw = self.chain.fkin(q)
+        Jac = np.vstack((Jv, Jw))
+        qd = weighted_pinv(Jac) @ np.concatenate((pd_goal, w_goal))
+
+        # # Get information about the kinematic chain
+        # ptip, Rtip, Jv, Jw = self.chain.fkin(self.q)
+        
+        # # Compte xdot
+        # Jac = np.vstack((Jv, Jw))
+        # xd_dot = np.concatenate((pd, w))
+
+        # # Compute error
+        # p_error = p - ptip
+        # R_error = 0.5 * (np.cross(Rtip[:,0], R[:,0]) + np.cross(Rtip[:,1], R[:,1]) + np.cross(Rtip[:,2], R[:,2]))
+        # error = np.concatenate((p_error, R_error))
+
+        # # Compute qdot
+        # LAM = 20
+        # GAMMA = 0.1
+        # qd = weighted_pinv(Jac, GAMMA) @ (xd_dot + LAM * error)
+
+        # # Integrate qdot
+        # self.q += qd * dt
+        # self.pd = pd
+        # self.p = p
+    
+        if converged:
+            return q, qd, None
+        else:
+            return None, None, error_magnitudes
+
 
 
 #
