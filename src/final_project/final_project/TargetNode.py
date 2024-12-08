@@ -107,9 +107,9 @@ class BinEngineNode(Node):
 
     def move_bin_randomly(self):
         """Move the bin to a random horizontal position."""
-        self.bin_position[0] = np.random.uniform(-4, 4)
+        self.bin_position[0] = np.random.uniform(-3, 3)
         self.bin_position[1] = np.random.uniform(2, 4)
-        self.bin_position[2] = np.random.uniform(0, 2)
+        self.bin_position[2] = np.random.uniform(0, 1)
         self.get_logger().info(f"Bin moved to new position: {self.bin_position}")
 
     def shutdown(self):

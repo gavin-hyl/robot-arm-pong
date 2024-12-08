@@ -127,7 +127,7 @@ class Trajectory():
         # Forward integrate the velocity of the ball
         dt = 0.01
         found_impact_position = False
-        gravity = np.array([0, 0, -9.8])
+        gravity = np.array([0, 0, -9.82])
         for t in np.arange(0, 3, dt):
             # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
             # and we choose a time value that's larger than that to capture the full trajectory.
@@ -183,7 +183,8 @@ class Trajectory():
         q = self.q.copy()
 
 
-        lower_arm_weights = np.array([0.1, 0.2, 0.3, 0.6, 1.0, 2.0, 3.0])
+        lower_arm_weights = np.array([0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5])
+        # lower_arm_weights = np.array([0.1, 0.2, 0.3, 0.6, 1.0, 2.0, 3.0])
         W_inv = np.linalg.inv(np.diag(lower_arm_weights))
 
         for _ in range(MAX_ITER):
@@ -195,12 +196,13 @@ class Trajectory():
             error = np.concatenate((p_error, R_error))
 
           
-            if np.linalg.norm(error) < 1e-5:
+            if np.linalg.norm(error) < 1e-7:
                 converged = True
                 break
           
             Jac = np.vstack((Jv, Jw))
             J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+            # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
 
         # Update joint positions
             delta_q = J_weighted_pinv @ error
@@ -209,6 +211,7 @@ class Trajectory():
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
         J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+        # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
         qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
