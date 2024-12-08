@@ -184,7 +184,9 @@ class Trajectory():
         converged = False
         q = self.q.copy()
 
-        error_magnitudes = []
+
+        lower_arm_weights = np.array([0.1, 0.2, 0.3, 0.6, 1.0, 2.0, 3.0])
+        W_inv = np.linalg.inv(np.diag(lower_arm_weights))
 
         for _ in range(MAX_ITER):
             p, R, Jv, Jw = self.chain.fkin(q)
@@ -193,22 +195,28 @@ class Trajectory():
                             + np.cross(R[:,1], R_goal[:,1])\
                             + np.cross(R[:,2], R_goal[:,2]))
             error = np.concatenate((p_error, R_error))
-            Jac = np.vstack((Jv, Jw))
-            q += weighted_pinv(Jac) @ error 
-            error_magnitudes.append(np.linalg.norm(error))
+
+          
             if np.linalg.norm(error) < 1e-5:
                 converged = True
                 break
+          
+            Jac = np.vstack((Jv, Jw))
+            J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+
+        # Update joint positions
+            delta_q = J_weighted_pinv @ error
+            q += 0.5 * delta_q
+        
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
-        qd = weighted_pinv(Jac) @ np.concatenate((pd_goal, w_goal))
+        J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+        qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
             return q, qd, None
         else:
             return None, None, error_magnitudes
-
-
 
 #
 #  Main Code
