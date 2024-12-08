@@ -69,12 +69,10 @@ class Trajectory():
             self.qd_start = self.qd.copy()
             p_end, pd_end, R_end, w_end, t_to_impact = self.compute_impact_conditions(ball_pos, ball_vel, goal_pos)
             self.t_end = t + t_to_impact
-            self.q_end, self.qd_end, err_magnitudes = self.ikin(p_end, pd_end, R_end, w_end)
+            self.q_end, self.qd_end = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
                 msg_str += "Failed to find a valid trajectory to the ball"
-                for i, err in enumerate(err_magnitudes):
-                    msg_str += f"Error magnitude at iteration {i}: {err}\n"
         if self.t_end is None or t > self.t_end:
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
@@ -214,9 +212,9 @@ class Trajectory():
         qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
-            return q, qd, None
+            return q, qd
         else:
-            return None, None, error_magnitudes
+            return None, None
 
 #
 #  Main Code
