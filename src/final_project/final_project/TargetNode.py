@@ -143,7 +143,7 @@ class BinEngineNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BinEngineNode('bin_engine', 10)
+    node = BinEngineNode('bin_engine', 100)
 
     rclpy.spin(node)
 
