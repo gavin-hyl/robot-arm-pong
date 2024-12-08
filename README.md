@@ -18,9 +18,6 @@ TODOs
 - joint trajectories (preferred, use NR to convert final task position to joint position) vs weighted inverse
 - swingiing motion and concentrating movement around lower joints. Use freedom in velocioty to choose preferred joints
 - velocity 1 DoF-ish, position 5 DoF-ish
-- Tip trajectory formulation asap
 
-- Arm hitting ball (Gavin)
 - Multiple balls at once (push until later)
-- Optimization, prefer to use the further DOFs (Sophia)
 - Explore speed to hit the ball, the best place for the paddle to hit the ball in taskspace/workspace (Julia)

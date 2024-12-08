@@ -217,6 +217,7 @@ Visualization Manager:
       Enabled: true
       Name: MarkerArray
       Namespaces:
+        bin: true
         point: true
       Topic:
         Depth: 5
@@ -238,7 +239,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Fixed Frame: world
-    Frame Rate: 30
+    Frame Rate: 120
   Name: root
   Tools:
     - Class: rviz_default_plugins/Interact
@@ -295,10 +296,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3303981125354767
+      Pitch: 0.3303983211517334
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.8953995704650879
+      Yaw: 1.6903936862945557
     Saved: ~
 Window Geometry:
   Displays:
