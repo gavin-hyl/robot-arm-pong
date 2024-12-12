@@ -1,6 +1,8 @@
 import rclpy
 import numpy as np
 
+from math import fmod
+
 from .ControllerNode      import RobotControllerNode
 from .TransformHelpers   import *
 from .TrajectoryUtils    import *
@@ -8,16 +10,17 @@ from .TrajectoryUtils    import *
 from .KinematicChain     import KinematicChain
 from .MatrixUtils        import weighted_pinv
 
+ARM_WEIGHTS = np.array([0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5])
+
 
 class Trajectory():
 
     def __init__(self, node):
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-
         # xd refers to the derivative of x.
         
         # Idle position
-        self.q0 = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
+        self.q0 = np.radians(np.array([-90, 45, 0, -90, -45, 0, 0]))
         self.qd0 = np.zeros(7)
         p, R, _, _ = self.chain.fkin(self.q0)
         self.p0 = p
@@ -26,11 +29,11 @@ class Trajectory():
         self.w0 = np.zeros(3)
 
         # Initial joint positions and velocities.
-        self.q = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
+        self.q = self.q0
         self.qd = np.zeros(7)
-        self.p = np.array([0.0, 0.55, 1.0])
+        self.p = p
         self.pd = np.zeros(3)
-        self.R = np.eye(3)
+        self.R = R
         self.w = np.zeros(3)
 
         # Start and end conditions for the trajectory. We do a joint trajectory, so we only store the joint values.
@@ -44,6 +47,12 @@ class Trajectory():
     
     def jointnames(self):
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
+    
+    def wrap_q(self, q):
+        q_wrapped = q.copy()
+        for i, qi in enumerate(q):
+            q_wrapped[i] = fmod(qi + np.pi, 2*np.pi) - np.pi
+        return q_wrapped
 
 
     def evaluate(self, t, dt, ball_pos, ball_vel, goal_pos, regenerated):
@@ -77,19 +86,27 @@ class Trajectory():
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
 
+
+
+        self.q_start = self.wrap_q(self.q_start)
+        self.q_end = self.wrap_q(self.q_end)
+
         # Track the trajectory given by t_start, t_end, q_start, q_end, qd_start, qd_end
-        q, qd = spline(t - self.t_start, self.t_end - self.t_start, self.q_start, self.q_end, self.qd_start, self.qd_end)
+        q, qd = spline(t - self.t_start, self.t_end - self.t_start,
+                       self.q_start, self.q_end,
+                       self.qd_start, self.qd_end)
         
         p, R, Jv, Jw = self.chain.fkin(q)
         pd = Jv @ qd
         w = Jw @ qd
-
-        self.q = q
+        
+        self.q = self.wrap_q(q)
         self.qd = qd
         self.p = p
         self.pd = pd
         self.R = R
         self.w = w
+        
 
         return (q, qd, p, pd, R, w), msg_str
     
@@ -126,7 +143,7 @@ class Trajectory():
 
         # Forward integrate the velocity of the ball
         dt = 0.01
-        found_impact_position = False
+        found_impact_position = False   
         gravity = np.array([0, 0, -9.82])
         for t in np.arange(0, 3, dt):
             # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
@@ -150,30 +167,30 @@ class Trajectory():
         pd_ball_after_impact = (p_impact_to_target - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target # delta p = vt + 1/2 at^2
 
         # z-axis should be aligned with v_paddle
-        # z = pd_paddle_at_impact / np.linalg.norm(pd_paddle_at_impact)
         z = pd_ball_after_impact - pd_ball_impact
         z = z / np.linalg.norm(z)
-        y_guess = np.array([0, 1, 0])
+        y_guess = np.array([0, 1, 0])   # y doesn't really matter
         x = np.cross(y_guess, z)
         x = x / np.linalg.norm(x)
         y = np.cross(z, x)
         R_impact = np.vstack((x, y, z)).T
 
-        # express it in the tip frame
-        pd_paddle_at_impact = z * 1/2 * (np.dot(z, pd_ball_impact+ pd_ball_after_impact))\
-                            + y * 0 \
-                            + x * 0
+        # Optimize the joint velocities at the time of impact.
+        pd_z = 1/2 * (np.dot(z, pd_ball_impact+ pd_ball_after_impact))
+        pd_paddle_at_impact = pd_z * z
 
+        # pd_paddle_at_impact = z * pd_z + pd_z * (y * weight_y + x * weight_x)
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
 
 
-    # CHANGE THIS FUNCTION TO CHANGE THE CALCULATED END q, WHICH CHANGES THE TRAJECTORY
     def ikin(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
 
         Args:
             p_goal (array): the goal position
-            R_goal (array): the goal orientation
+            pd_goal (array): the goal velocity (x and y ignored)
+            R_goal (array): the goal orientation (x and y axes ignored)
+            w_goal (array): the goal angular velocity (ignored)
 
         Returns:
             q, qd (array, array): the joint positions and velocities that achieve the desired position and orientation
@@ -182,10 +199,7 @@ class Trajectory():
         converged = False
         q = self.q.copy()
 
-
-        lower_arm_weights = np.array([0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5])
-        # lower_arm_weights = np.array([0.1, 0.2, 0.3, 0.6, 1.0, 2.0, 3.0])
-        W_inv = np.linalg.inv(np.diag(lower_arm_weights))
+        W_inv = np.linalg.inv(np.diag(ARM_WEIGHTS))
 
         for _ in range(MAX_ITER):
             p, R, Jv, Jw = self.chain.fkin(q)
@@ -193,6 +207,7 @@ class Trajectory():
             R_error = 0.5 * (np.cross(R[:,0], R_goal[:,0]) \
                             + np.cross(R[:,1], R_goal[:,1])\
                             + np.cross(R[:,2], R_goal[:,2]))
+            # R_error = 0.5 * (np.cross(R[:,2], R_goal[:,2]))
             error = np.concatenate((p_error, R_error))
 
           
@@ -202,20 +217,22 @@ class Trajectory():
           
             Jac = np.vstack((Jv, Jw))
             J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
-            # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
 
-        # Update joint positions
+            # Update joint positions
             delta_q = J_weighted_pinv @ error
             q += 0.5 * delta_q
+            q = self.wrap_q(q)
         
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
-        J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
-        # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
-        qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
+        Jac = Jv
+        # J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+        J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
+        qd = J_weighted_pinv @ pd_goal
+        # qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
-            return q, qd
+            return self.wrap_q(q), qd
         else:
             return None, None
 

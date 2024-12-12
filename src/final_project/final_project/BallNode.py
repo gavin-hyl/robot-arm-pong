@@ -96,17 +96,18 @@ class BallEngineNode(Node):
 
     def initialize_p_v(self):
         # Choose a random point in the task space (simplified to be a sphere)
-        def rand_unit_vec():
+        def rand_vec(min_len=0, max_len=1):
             vec = np.random.rand(3) * 2 - 1
             vec /= np.linalg.norm(vec)
+            vec *= np.random.random_sample() * (max_len - min_len) + min_len
             return vec
         TASK_SPACE_RADIUS = 0.3
-        task_space_pos = rand_unit_vec() * TASK_SPACE_RADIUS / 2 + np.array([0, 0, TASK_SPACE_RADIUS * 2])
+        task_space_pos = rand_vec(0.5, 1) * TASK_SPACE_RADIUS / 2 + np.array([0, 0, TASK_SPACE_RADIUS * 2])
         
         task_space_vel = np.zeros(3)
         V_Z_MAX = 5
         task_space_vel[2] = np.random.random_sample() * V_Z_MAX - V_Z_MAX
-        HORIZONTAL_SPEED = 5
+        HORIZONTAL_SPEED = 3
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
         task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * (-1) - HORIZONTAL_SPEED/2
 
@@ -137,8 +138,10 @@ class BallEngineNode(Node):
             if self.underground_time > 1.5 * self.reverse_integration_time:
                 self.initialize_p_v()
 
-        # check for collision with the paddle
-        if np.linalg.norm(self.paddle_pos - self.p) < self.radius * 2:
+        # check for collision with the paddle.
+        ball_paddle_rel_pos = np.dot(self.paddle_z, self.paddle_pos - self.p)
+        if np.linalg.norm(self.paddle_pos - self.p) < self.radius \
+            and 0 < ball_paddle_rel_pos < 1e-3:
             n = self.paddle_z
             delta_v = self.v - self.paddle_vel
             delta_v_proj = np.dot(delta_v, n) * n
