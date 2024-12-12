@@ -19,7 +19,7 @@ class Controller():
 
     def __init__(self, node):
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
-        # xd refers to the derivative of x.
+        self.node = node
         
         # Idle position
         self.q0 = np.radians(np.array([-90, 45, 0, -90, -45, 0, 0]))
@@ -47,11 +47,12 @@ class Controller():
         self.q_end = None
         self.qd_end = None
 
-        # Since this is not a node, it should return a message string every time evaluate() is called to output anything to the screen.
-        self.msg_str = ""
-    
+
     def jointnames(self):
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
+    
+    def output_to_screen(self, msg):
+        self.node.get_logger().info(msg)
     
     def wrap_q(self, q):
         q_wrapped = q.copy()
@@ -73,10 +74,8 @@ class Controller():
             regenerated (bool): whether the ball has been regenerated in the last cycle
 
         Returns:
-            (array, array, array, array, array, array, str): q, qd, p, pd, R, w, msg_str
+            (array, array, array, array, array, array, str): q, qd, p, pd, R, w
         """
-        self.msg_str = ""
-
         if regenerated:
             # if the ball has been regenerated, compute the inverse kinematics to take us there
             self.t_start = t
@@ -87,9 +86,9 @@ class Controller():
             self.q_end, self.qd_end = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
-                self.msg_str += "Newton Raphson did not converge."
+                self.node.get_logger().info("Newton Raphson did not converge.")
             else:
-                self.msg_str += f"Expected impact parameters: p= {p_end}, R = {R_end}"
+                self.node.get_logger().info(f"Expected impact parameters: p= {p_end}, R = {R_end}")
         if self.t_end is None or t > self.t_end:
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
@@ -114,7 +113,7 @@ class Controller():
         self.w = w
         
 
-        return (q, qd, p, pd, R, w), self.msg_str
+        return (q, qd, p, pd, R, w)
     
 
     def set_idle(self, t, t_to_idle=1.5):
@@ -200,45 +199,53 @@ class Controller():
         Returns:
             q, qd (array, array): the joint positions and velocities that achieve the desired position and orientation
         """
-        MAX_ITER = 500
+        MAX_ITER = 2000
         converged = False
         q = self.q.copy()
 
-        W_inv = np.linalg.inv(np.diag(ARM_WEIGHTS))
         gamma = 0.1
 
         W2 = np.diag(ARM_WEIGHTS)
-
         W1 = np.diag([1, 1, 1, 10, 10, 10])
+
+        err_magnitudes = []
 
         for _ in range(MAX_ITER):
             p, R, Jv, Jw = self.chain.fkin(q)
-            p_error = p_goal - p
-            R_error = 0.5 * (np.cross(R[:,2], R_goal[:,2])) # only track the paddle normal
+            p_error = ep(p_goal, p)
+            R_error = 1/2 * cross(R[:, 2], R_goal[:, 2])
             error = np.concatenate((p_error, R_error))
           
-            if np.linalg.norm(error) < 1e-7:
+            if np.linalg.norm(error) < 1e-2:
                 converged = True
                 break
-          
+
+            err_magnitudes.append(np.linalg.norm(error))
+
             Jac = np.vstack((Jv, Jw))
             gamma = 0.1
             J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
 
-            # Update joint positions
-            delta_q = J_pinv @ error
-            q += 0.5 * delta_q
+            LAM1 = 0.5
+            LAM2 = 0.02
+            # LAM2 = 0
+            qd_primary = J_pinv @ error * LAM1
+            qd_secondary = (np.eye(len(q)) - Jac.T @ Jac) @ W2 @ self.wrap_q(self.q0 - q) * LAM2
+            q += (qd_primary + qd_secondary)
+            
         
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
         J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
 
-        # J_weighted_pinv = robot_inv(Jac, W=np.diag(ARM_WEIGHTS), gamma=0)
         qd = J_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
             return self.wrap_q(q), qd
         else:
+            for i, e in enumerate(err_magnitudes):
+                if i % 10 == 0:
+                    self.node.get_logger().info(f"Iteration {i}: Error magnitude: {e}")
             return None, None
 
 #
