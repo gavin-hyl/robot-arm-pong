@@ -49,18 +49,10 @@ class BinEngineNode(Node):
         self.marker_outer = self.create_cylinder_marker(
             id=1,
             scale=Vector3(x=2 * self.bin_radius, y=2 * self.bin_radius, z=self.bin_height),
-            color=ColorRGBA(r=0.5, g=0.5, b=0.5, a=1.0),  # Grey color for the outer part
-        )
-        
-        self.marker_inner = self.create_cylinder_marker(
-            id=2,
-            scale=Vector3(x=2 * (self.bin_radius - self.bin_wall_thickness),
-                          y=2 * (self.bin_radius - self.bin_wall_thickness),
-                          z=self.bin_height),
-            color=ColorRGBA(r=0.0, g=0.0, b=0.0, a=1.0),  # Black color for the inner part
+            color=ColorRGBA(r=0.5, g=0.5, b=0.8, a=1.0)
         )
 
-        self.markerarray = MarkerArray(markers=[self.marker_outer, self.marker_inner])
+        self.markerarray = MarkerArray(markers=[self.marker_outer])
 
         self.ball_position = np.array([0.0, 0.0, 0.0])
 
@@ -124,12 +116,8 @@ class BinEngineNode(Node):
         self.marker_outer.pose.position = Point(x=self.bin_position[0],
                                                 y=self.bin_position[1],
                                                 z=self.bin_position[2])
-        self.marker_inner.pose.position = Point(x=self.bin_position[0],
-                                                y=self.bin_position[1],
-                                                z=self.bin_position[2])
 
         self.marker_outer.header.stamp = self.get_clock().now().to_msg()
-        self.marker_inner.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(self.markerarray)
 
         # Publish the new bin position as a PoseStamped message
