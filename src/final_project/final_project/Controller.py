@@ -53,8 +53,9 @@ class Trajectory():
         for i, qi in enumerate(q):
             q_wrapped[i] = fmod(qi + np.pi, 2*np.pi) - np.pi
         return q_wrapped
-
-
+    
+    # def 
+    
     def evaluate(self, t, dt, ball_pos, ball_vel, goal_pos, regenerated):
         """Compute the desired joint/task positions and velocities, as well as the orientation and angular velocity.
 
@@ -86,21 +87,33 @@ class Trajectory():
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
 
+        # self.q_start = self.wrap_q(self.q_start)
+        # self.q_end = self.wrap_q(self.q_end)
 
-
-        self.q_start = self.wrap_q(self.q_start)
-        self.q_end = self.wrap_q(self.q_end)
+        q_diff = self.q_end - self.q_start
+        # q_diff = self.wrap_q(q_diff)
+        # self.q_end = self.q_start + q_diff
 
         # Track the trajectory given by t_start, t_end, q_start, q_end, qd_start, qd_end
         q, qd = spline(t - self.t_start, self.t_end - self.t_start,
-                       self.q_start, self.q_end,
+                       np.zeros(7), self.wrap_q(q_diff),
                        self.qd_start, self.qd_end)
-        
+        q += self.q_start
+
         p, R, Jv, Jw = self.chain.fkin(q)
         pd = Jv @ qd
         w = Jw @ qd
+
+        # ball bounce test ===
+        # q = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
+        # qd = np.zeros(7)
+        # p = np.array([0.0, 0.55, 1.0])
+        # pd = np.zeros(3)
+        # R = np.eye(3)
+        # w = np.zeros(3)
+        # ball bounce test ===
         
-        self.q = self.wrap_q(q)
+        self.q = q
         self.qd = qd
         self.p = p
         self.pd = pd
@@ -221,15 +234,15 @@ class Trajectory():
             # Update joint positions
             delta_q = J_weighted_pinv @ error
             q += 0.5 * delta_q
-            q = self.wrap_q(q)
+            # q = self.wrap_q(q)
         
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
-        Jac = Jv
-        # J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
-        J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
-        qd = J_weighted_pinv @ pd_goal
-        # qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
+        # Jac = Jv
+        J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+        # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
+        # qd = J_weighted_pinv @ pd_goal
+        qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
             return self.wrap_q(q), qd

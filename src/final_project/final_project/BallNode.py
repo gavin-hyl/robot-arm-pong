@@ -111,9 +111,15 @@ class BallEngineNode(Node):
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
         task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * (-1) - HORIZONTAL_SPEED/2
 
+        # ball bounce test ===
+        # self.reverse_integration_time = 0.5
+        # task_space_pos = np.array([0, 0.55, 1])
+        # task_space_vel = np.array([0, 1, -5])
+        # ball bounce test ===
+
         # Integrate backwards
         self.p = task_space_pos - self.reverse_integration_time * task_space_vel \
-                    + 0.5 * self.a * self.reverse_integration_time**2
+                    + 0.5 * self.a * (self.reverse_integration_time**2)
         self.v = task_space_vel - self.a * self.reverse_integration_time
         self.underground_time = 0
         self.pub_regenerated.publish(Bool(data=True))
@@ -139,9 +145,11 @@ class BallEngineNode(Node):
                 self.initialize_p_v()
 
         # check for collision with the paddle.
-        ball_paddle_rel_pos = np.dot(self.paddle_z, self.paddle_pos - self.p)
-        if np.linalg.norm(self.paddle_pos - self.p) < self.radius \
-            and 0 < ball_paddle_rel_pos < 1e-3:
+        ball_paddle_rel_pos = np.dot(self.paddle_z, self.p - self.paddle_pos)
+        
+        self.get_logger().info(f"{ball_paddle_rel_pos}")
+        if np.linalg.norm(self.paddle_pos - self.p) < self.radius * 2\
+            and 0 < ball_paddle_rel_pos < self.radius:
             n = self.paddle_z
             delta_v = self.v - self.paddle_vel
             delta_v_proj = np.dot(delta_v, n) * n
