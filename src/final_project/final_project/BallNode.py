@@ -23,6 +23,8 @@ from visualization_msgs.msg     import MarkerArray
 from .TransformHelpers          import *
 
 
+GRAVITY = np.array([0, 0, -9.82])
+
 class BallEngineNode(Node):
     def __init__(self, name, rate):
         # Initialize the node, naming it as specified

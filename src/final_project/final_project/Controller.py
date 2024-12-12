@@ -3,17 +3,15 @@ import numpy as np
 
 from math import fmod
 
-from .ControllerNode      import RobotControllerNode
-from .TransformHelpers   import *
-from .TrajectoryUtils    import *
+from .ControllerNode    import RobotControllerNode
+from .TransformHelpers  import *
+from .TrajectoryUtils   import *
 
-from .KinematicChain     import KinematicChain
-from .MatrixUtils        import weighted_approx_pinv as robot_inv
+from .KinematicChain    import KinematicChain
+from .BallNode          import GRAVITY
 
 ARM_WEIGHTS = [0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5]
-ARM_WEIGHTS.sort()
 ARM_WEIGHTS = np.array(ARM_WEIGHTS)
-
 
 class Controller():
 
@@ -99,13 +97,13 @@ class Controller():
         q, qd = spline(t - self.t_start, self.t_end - self.t_start,
                        np.zeros(7), self.wrap_q(q_diff),
                        self.qd_start, self.qd_end)
-        q += self.q_start
+        q += self.wrap_q(self.q_start)
 
         p, R, Jv, Jw = self.chain.fkin(q)
         pd = Jv @ qd
         w = Jw @ qd
         
-        self.q = q
+        self.q = self.wrap_q(q)
         self.qd = qd
         self.p = p
         self.pd = pd
@@ -149,12 +147,11 @@ class Controller():
         # Forward integrate the velocity of the ball
         dt = 0.01
         found_impact_position = False   
-        gravity = np.array([0, 0, -9.82])
         for t in np.arange(0, 3, dt):
             # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
             # and we choose a time value that's larger than that to capture the full trajectory.
             p_ball += v_ball * dt
-            v_ball += gravity * dt
+            v_ball += GRAVITY * dt
             r = np.linalg.norm(p_ball - TASK_SPACE_P)
             if r < TASK_SPACE_R * 0.9 and p_ball[2] > 0:
                 p_impact = p_ball
@@ -168,8 +165,8 @@ class Controller():
             return self.p0, self.pd0, self.R0, self.w0, 1
         
         p_impact_to_target = p_target - p_impact
-        t_hit_to_target = 0.5
-        pd_ball_after_impact = (p_impact_to_target - 0.5 * gravity * t_hit_to_target**2) / t_hit_to_target # delta p = vt + 1/2 at^2
+        t_hit_to_target = 0.3
+        pd_ball_after_impact = (p_impact_to_target - 0.5 * GRAVITY * t_hit_to_target**2) / t_hit_to_target # delta p = vt + 1/2 at^2
 
         # z-axis should be aligned with v_paddle
         z = pd_ball_after_impact - pd_ball_impact
@@ -187,6 +184,27 @@ class Controller():
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
     
 
+    def compute_task_space_goal(self, p_impact, pd_impact, p_target):
+        p_impact_to_target = p_target - p_impact
+        t_hit_to_target = 0.5
+        pd_ball_after_impact = (p_impact_to_target - 0.5 * GRAVITY * t_hit_to_target**2) / t_hit_to_target # delta p = vt + 1/2 at^2
+
+        # z-axis should be aligned with v_paddle
+        z = pd_ball_after_impact - pd_impact
+        z = z / np.linalg.norm(z)
+        y_guess = np.array([0, 1, 0])   # y doesn't really matter
+        x = np.cross(y_guess, z)
+        x = x / np.linalg.norm(x)
+        y = np.cross(z, x)
+        R_impact = np.vstack((x, y, z)).T
+
+        # Optimize the joint velocities at the time of impact.
+        pd_z = 1/2 * (np.dot(z, pd_impact+ pd_ball_after_impact))
+        pd_paddle_at_impact = pd_z * z
+
+        return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3)
+    
+
     def ikin(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
 
@@ -194,7 +212,7 @@ class Controller():
             p_goal (array): the goal position
             pd_goal (array): the goal velocity (x and y ignored)
             R_goal (array): the goal orientation (x and y axes ignored)
-            w_goal (array): the goal angular velocity (ignored)
+            w_goal (array): the goal angular velocity (ignored, added for completeness)
 
         Returns:
             q, qd (array, array): the joint positions and velocities that achieve the desired position and orientation
@@ -234,12 +252,15 @@ class Controller():
             
         
         p, R, Jv, Jw = self.chain.fkin(q)
+        Jv_tip = R.T @ Jv
+        Jv_tip = Jv_tip[2]
         Jw_tip = R.T @ Jw
         Jw_tip = Jw_tip[:2]
-        Jac = np.vstack((Jv, Jw_tip))
+        Jac = np.vstack((Jv_tip, Jw_tip))
         J_pinv = np.linalg.pinv(Jac.T @ Jac + gamma**2 * W2**2) @ Jac.T
 
-        qd = J_pinv @ np.concatenate((pd_goal, (R.T @ w_goal)[:2]))
+        qd = J_pinv @ np.hstack(((R.T @ pd_goal)[2], (R.T @ w_goal)[:2])) \
+            + (np.eye(self.chain.dofs) - J_pinv @ Jac) @ W2 @ self.wrap_q(self.q0 - q) * LAM2
 
         if converged:
             return self.wrap_q(q), qd

@@ -27,10 +27,10 @@ Questions
 - freeze the ball for a bit when it hits
 
 Features:
-1. joint-based trajectories
-2. singularity handling with weighted inverses
-3. primary and secondary task
+1. joint-based trajectories (done - gavin)
+2. singularity handling with weighted inverses (done)
+3. primary and secondary task (done)
 4. considering condition numbers
-5. graceful handling of ball throws outside of work space
+5. graceful handling of ball throws outside of work space (done)
 6. workspace based ball generation (and workspace visualization)
 7. considering joint limits
