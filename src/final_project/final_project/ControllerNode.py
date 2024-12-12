@@ -1,43 +1,3 @@
-'''GeneratorNode.py
-
-   This creates a trajectory generator node
-
-   To use import
-
-     from GeneratorNode import GeneratorNode
-
-   and call
-
-     generator = GeneratorNode(name, rate, TrajectoryClass)
-
-   This initializes the node, under the specified name and rate.  This
-   also requires a trajectory class which must implement:
-
-       trajectory = TrajectoryClass(node)
-       jointnames = trajectory.jointnames()
-       (desired)  = trajectory.evaluate(t, dt)
-
-   where jointnames is a python list of joint names, which must match
-   the URDF (moving) joint names.
-
-   The evaluation is provided the current time (t) and the (dt) some
-   the last evaluation, to be used for integration.  It may return
-
-       None                                 Trajectory ends (node shuts down)
-       (q, qdot)                            Joint position, velocity
-       (q, qdot, p, v)                      Joint and task translation
-       (q, qdot, p, v, R, omega)            Joint and task full pose
-       (None, None, p, v)                   Just the task translation
-       (None, None, None, None, R, omega)   Just the task orientation
-
-
-   Node:        /generator
-   Publish:     /joint_states           sensor_msgs/msg/JointState
-                /pose                   geometry_msgs/msg/PoseStamped
-                /twist                  geometry_msgs/msg/TwistStamped
-
-'''
-
 import numpy as np
 import rclpy
 import tf2_ros
@@ -51,20 +11,9 @@ from geometry_msgs.msg  import PoseStamped, TwistStamped
 from geometry_msgs.msg  import TransformStamped
 from sensor_msgs.msg    import JointState
 
-from final_project.TransformHelpers   import quat_from_R
+from .TransformHelpers   import quat_from_R
 
 
-#
-#   Trajectory Generator Node Class
-#
-#   This inherits all the standard ROS node stuff, but adds
-#     1) an update() method to be called regularly by an internal timer,
-#     2) a spin() method, aware when a trajectory ends,
-#     3) a shutdown() method to stop the timer.
-#
-#   Take the node name, the update frequency, and the trajectory class
-#   as arguments.
-#
 class RobotControllerNode(Node):
     # Initialization.
     def __init__(self, name, rate, Trajectory):
@@ -89,8 +38,6 @@ class RobotControllerNode(Node):
         # Initialize a regular and static transform broadcaster
         self.tfbroadcaster = tf2_ros.TransformBroadcaster(self)
 
-        # Wait for a connection to happen.  This isn't necessary, but
-        # means we don't start until the rest of the system is ready.
         self.get_logger().info("Waiting for a /joint_states subscriber...")
         while(not self.count_subscribers('/joint_states')):
             pass
@@ -123,12 +70,8 @@ class RobotControllerNode(Node):
 
     # Spin
     def spin(self):
-        # Keep running (taking care of the timer callbacks and message
-        # passing), until interrupted or the trajectory is complete
-        # (as signaled by the future object).
         rclpy.spin_until_future_complete(self, self.future)
 
-        # Report the reason for shutting down.
         if self.future.done():
             self.get_logger().info("Stopping: " + self.future.result())
         else:
@@ -144,9 +87,7 @@ class RobotControllerNode(Node):
         # Compute the trajectory for this time.
         regenerated = self.regenerated
         self.regenerated = False    # avoid race condition
-        des, msg_str = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel, self.goal_pos, regenerated)
-        if msg_str is not None and len(msg_str) > 0:
-            self.get_logger().info(msg_str)
+        des = self.trajectory.evaluate(self.t, self.dt, self.ball_pos, self.ball_vel, self.goal_pos, regenerated)
         if des is None:
             self.future.set_result("Trajectory has ended")
             return

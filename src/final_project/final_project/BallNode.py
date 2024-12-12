@@ -10,6 +10,7 @@
 
 import rclpy
 import numpy as np
+from time import sleep
 
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
@@ -54,9 +55,10 @@ class BallEngineNode(Node):
         
         self.restitution = 1
 
-        self.paddle_pos = np.zeros(3)
-        self.paddle_z = np.array([0, 0, 1])
-        self.paddle_vel = np.zeros(3)
+        self.paddle_p = np.zeros(3)
+        self.paddle_R = np.eye(3)
+        self.paddle_pd = np.zeros(3)
+        self.impacted = False   # prevent double impacts
         
 
         # Initialize the ball position, velocity, set the acceleration.
@@ -65,7 +67,7 @@ class BallEngineNode(Node):
         self.initialize_p_v()
         self.underground_time = 0
 
-        self.radius = 0.05
+        self.radius = 0.1
 
         # Create the sphere marker.
         diam        = 2 * self.radius
@@ -111,12 +113,19 @@ class BallEngineNode(Node):
         task_space_vel[0] = np.random.random_sample() * HORIZONTAL_SPEED * 2 - HORIZONTAL_SPEED
         task_space_vel[1] = np.random.random_sample() * HORIZONTAL_SPEED * (-1) - HORIZONTAL_SPEED/2
 
+        # ball bounce test ===
+        # self.reverse_integration_time = 0.5
+        # task_space_pos = np.array([0, 0.55, 1])
+        # task_space_vel = np.array([0, 1, -5])
+        # ball bounce test ===
+
         # Integrate backwards
         self.p = task_space_pos - self.reverse_integration_time * task_space_vel \
-                    + 0.5 * self.a * self.reverse_integration_time**2
+                    + 0.5 * self.a * (self.reverse_integration_time**2)
         self.v = task_space_vel - self.a * self.reverse_integration_time
         self.underground_time = 0
         self.pub_regenerated.publish(Bool(data=True))
+        self.impacted = False
 
 
     # Shutdown
@@ -139,13 +148,18 @@ class BallEngineNode(Node):
                 self.initialize_p_v()
 
         # check for collision with the paddle.
-        ball_paddle_rel_pos = np.dot(self.paddle_z, self.paddle_pos - self.p)
-        if np.linalg.norm(self.paddle_pos - self.p) < self.radius \
-            and 0 < ball_paddle_rel_pos < 1e-3:
-            n = self.paddle_z
-            delta_v = self.v - self.paddle_vel
-            delta_v_proj = np.dot(delta_v, n) * n
-            self.v += -2 * self.restitution * delta_v_proj
+        normal = self.paddle_R[:, 2]
+        ball_paddle_rel_pos = np.dot(normal, self.p - self.paddle_p)
+        if np.linalg.norm(self.paddle_p - self.p) < self.radius / 2\
+            and 0 < ball_paddle_rel_pos < self.radius / 2 \
+            and not self.impacted:
+            delta_v_world = self.v - self.paddle_pd       # in world frame
+            delta_v_paddle = self.paddle_R.T @ delta_v_world # now in paddle frame
+            delta_v_paddle[2] *= -1     # reflected
+            delta_v_world_after_impact = self.paddle_R @ delta_v_paddle # back to world frame
+            self.v = delta_v_world_after_impact + self.paddle_pd    # recover the total velocity
+            self.get_logger().info(f"Impact at p = {self.paddle_p}, R = {self.paddle_R}\n")
+            self.impacted = True
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
@@ -177,10 +191,9 @@ class BallEngineNode(Node):
         Args:
             msg (PoseStamped): The message containing the current pose of the paddle.
         """
-        self.paddle_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        self.paddle_p = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         orientation = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        R_from_quaternion = R_from_quat(orientation)
-        self.paddle_z = R_from_quaternion @ np.array([0, 0, 1])
+        self.paddle_R = R_from_quat(orientation)
 
     def twist_callback(self, msg):
         """Callback for the twist topic. Records the current linear and angular velocity of the paddle.
@@ -188,12 +201,12 @@ class BallEngineNode(Node):
         Args:
             msg (TwistStamped): The message containing the current twist of the paddle.
         """
-        self.paddle_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
+        self.paddle_pd = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
 
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BallEngineNode('ball_engine', 100)
+    node = BallEngineNode('ball_engine', 1000)
 
     rclpy.spin(node)
 
