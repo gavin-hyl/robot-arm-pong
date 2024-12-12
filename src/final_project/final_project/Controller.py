@@ -8,12 +8,14 @@ from .TransformHelpers   import *
 from .TrajectoryUtils    import *
 
 from .KinematicChain     import KinematicChain
-from .MatrixUtils        import weighted_pinv
+from .MatrixUtils        import weighted_approx_pinv as robot_inv
 
-ARM_WEIGHTS = np.array([0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5])
+ARM_WEIGHTS = [0.3, 0.4, 0.5, 0.7, 1, 1.5, 1.5]
+ARM_WEIGHTS.sort()
+ARM_WEIGHTS = np.array(ARM_WEIGHTS)
 
 
-class Trajectory():
+class Controller():
 
     def __init__(self, node):
         self.chain = KinematicChain(node, 'world', 'tip', self.jointnames())
@@ -44,6 +46,9 @@ class Trajectory():
         self.t_end = None
         self.q_end = None
         self.qd_end = None
+
+        # Since this is not a node, it should return a message string every time evaluate() is called to output anything to the screen.
+        self.msg_str = ""
     
     def jointnames(self):
         return ['theta1', 'theta2', 'theta3', 'theta4', 'theta5', 'theta6', 'theta7']
@@ -70,7 +75,7 @@ class Trajectory():
         Returns:
             (array, array, array, array, array, array, str): q, qd, p, pd, R, w, msg_str
         """
-        msg_str = ""
+        self.msg_str = ""
 
         if regenerated:
             # if the ball has been regenerated, compute the inverse kinematics to take us there
@@ -82,19 +87,16 @@ class Trajectory():
             self.q_end, self.qd_end = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
-                msg_str += "Failed to find a valid trajectory to the ball"
+                self.msg_str += "Newton Raphson did not converge."
+            else:
+                self.msg_str += f"Expected impact parameters: p= {p_end}, R = {R_end}"
         if self.t_end is None or t > self.t_end:
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
 
-        # self.q_start = self.wrap_q(self.q_start)
-        # self.q_end = self.wrap_q(self.q_end)
-
-        q_diff = self.q_end - self.q_start
-        # q_diff = self.wrap_q(q_diff)
-        # self.q_end = self.q_start + q_diff
 
         # Track the trajectory given by t_start, t_end, q_start, q_end, qd_start, qd_end
+        q_diff = self.q_end - self.q_start
         q, qd = spline(t - self.t_start, self.t_end - self.t_start,
                        np.zeros(7), self.wrap_q(q_diff),
                        self.qd_start, self.qd_end)
@@ -103,15 +105,6 @@ class Trajectory():
         p, R, Jv, Jw = self.chain.fkin(q)
         pd = Jv @ qd
         w = Jw @ qd
-
-        # ball bounce test ===
-        # q = np.radians(np.array([0, 90, 0, -90, 0, 0, 0]))
-        # qd = np.zeros(7)
-        # p = np.array([0.0, 0.55, 1.0])
-        # pd = np.zeros(3)
-        # R = np.eye(3)
-        # w = np.zeros(3)
-        # ball bounce test ===
         
         self.q = q
         self.qd = qd
@@ -121,7 +114,7 @@ class Trajectory():
         self.w = w
         
 
-        return (q, qd, p, pd, R, w), msg_str
+        return (q, qd, p, pd, R, w), self.msg_str
     
 
     def set_idle(self, t, t_to_idle=1.5):
@@ -192,7 +185,6 @@ class Trajectory():
         pd_z = 1/2 * (np.dot(z, pd_ball_impact+ pd_ball_after_impact))
         pd_paddle_at_impact = pd_z * z
 
-        # pd_paddle_at_impact = z * pd_z + pd_z * (y * weight_y + x * weight_x)
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
 
 
@@ -213,36 +205,36 @@ class Trajectory():
         q = self.q.copy()
 
         W_inv = np.linalg.inv(np.diag(ARM_WEIGHTS))
+        gamma = 0.1
+
+        W2 = np.diag(ARM_WEIGHTS)
+
+        W1 = np.diag([1, 1, 1, 10, 10, 10])
 
         for _ in range(MAX_ITER):
             p, R, Jv, Jw = self.chain.fkin(q)
             p_error = p_goal - p
-            R_error = 0.5 * (np.cross(R[:,0], R_goal[:,0]) \
-                            + np.cross(R[:,1], R_goal[:,1])\
-                            + np.cross(R[:,2], R_goal[:,2]))
-            # R_error = 0.5 * (np.cross(R[:,2], R_goal[:,2]))
+            R_error = 0.5 * (np.cross(R[:,2], R_goal[:,2])) # only track the paddle normal
             error = np.concatenate((p_error, R_error))
-
           
             if np.linalg.norm(error) < 1e-7:
                 converged = True
                 break
           
             Jac = np.vstack((Jv, Jw))
-            J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
+            gamma = 0.1
+            J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
 
             # Update joint positions
-            delta_q = J_weighted_pinv @ error
+            delta_q = J_pinv @ error
             q += 0.5 * delta_q
-            # q = self.wrap_q(q)
         
         p, R, Jv, Jw = self.chain.fkin(q)
         Jac = np.vstack((Jv, Jw))
-        # Jac = Jv
-        J_weighted_pinv = W_inv @ Jac.T @ np.linalg.inv(Jac @ W_inv @ Jac.T)
-        # J_weighted_pinv = weighted_pinv(Jac, gamma=0.1)
-        # qd = J_weighted_pinv @ pd_goal
-        qd = J_weighted_pinv @ np.concatenate((pd_goal, w_goal))
+        J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
+
+        # J_weighted_pinv = robot_inv(Jac, W=np.diag(ARM_WEIGHTS), gamma=0)
+        qd = J_pinv @ np.concatenate((pd_goal, w_goal))
 
         if converged:
             return self.wrap_q(q), qd
@@ -258,7 +250,7 @@ def main(args=None):
 
     # Initialize the generator node for 100Hz udpates, using the above
     # Trajectory class.
-    generator = RobotControllerNode('generator', 100, Trajectory)
+    generator = RobotControllerNode('generator', 100, Controller)
 
     # Spin, meaning keep running (taking care of the timer callbacks
     # and message passing), until interrupted or the trajectory ends.

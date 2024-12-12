@@ -10,6 +10,7 @@
 
 import rclpy
 import numpy as np
+from time import sleep
 
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
@@ -57,6 +58,7 @@ class BallEngineNode(Node):
         self.paddle_p = np.zeros(3)
         self.paddle_R = np.eye(3)
         self.paddle_pd = np.zeros(3)
+        self.impacted = False   # prevent double impacts
         
 
         # Initialize the ball position, velocity, set the acceleration.
@@ -65,7 +67,7 @@ class BallEngineNode(Node):
         self.initialize_p_v()
         self.underground_time = 0
 
-        self.radius = 0.05
+        self.radius = 0.1
 
         # Create the sphere marker.
         diam        = 2 * self.radius
@@ -123,6 +125,7 @@ class BallEngineNode(Node):
         self.v = task_space_vel - self.a * self.reverse_integration_time
         self.underground_time = 0
         self.pub_regenerated.publish(Bool(data=True))
+        self.impacted = False
 
 
     # Shutdown
@@ -147,13 +150,16 @@ class BallEngineNode(Node):
         # check for collision with the paddle.
         normal = self.paddle_R[:, 2]
         ball_paddle_rel_pos = np.dot(normal, self.p - self.paddle_p)
-        if np.linalg.norm(self.paddle_p - self.p) < self.radius * 2\
-            and 0 < ball_paddle_rel_pos < self.radius:
+        if np.linalg.norm(self.paddle_p - self.p) < self.radius / 2\
+            and 0 < ball_paddle_rel_pos < self.radius / 2 \
+            and not self.impacted:
             delta_v_world = self.v - self.paddle_pd       # in world frame
             delta_v_paddle = self.paddle_R.T @ delta_v_world # now in paddle frame
             delta_v_paddle[2] *= -1     # reflected
             delta_v_world_after_impact = self.paddle_R @ delta_v_paddle # back to world frame
             self.v = delta_v_world_after_impact + self.paddle_pd    # recover the total velocity
+            self.get_logger().info(f"Impact at p = {self.paddle_p}, R = {self.paddle_R}\n")
+            self.impacted = True
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
@@ -200,7 +206,7 @@ class BallEngineNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = BallEngineNode('ball_engine', 100)
+    node = BallEngineNode('ball_engine', 1000)
 
     rclpy.spin(node)
 
