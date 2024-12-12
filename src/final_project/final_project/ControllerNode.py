@@ -38,8 +38,6 @@ class RobotControllerNode(Node):
         # Initialize a regular and static transform broadcaster
         self.tfbroadcaster = tf2_ros.TransformBroadcaster(self)
 
-        # Wait for a connection to happen.  This isn't necessary, but
-        # means we don't start until the rest of the system is ready.
         self.get_logger().info("Waiting for a /joint_states subscriber...")
         while(not self.count_subscribers('/joint_states')):
             pass

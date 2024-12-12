@@ -54,9 +54,9 @@ class BallEngineNode(Node):
         
         self.restitution = 1
 
-        self.paddle_pos = np.zeros(3)
-        self.paddle_z = np.array([0, 0, 1])
-        self.paddle_vel = np.zeros(3)
+        self.paddle_p = np.zeros(3)
+        self.paddle_R = np.eye(3)
+        self.paddle_pd = np.zeros(3)
         
 
         # Initialize the ball position, velocity, set the acceleration.
@@ -145,15 +145,15 @@ class BallEngineNode(Node):
                 self.initialize_p_v()
 
         # check for collision with the paddle.
-        ball_paddle_rel_pos = np.dot(self.paddle_z, self.p - self.paddle_pos)
-        
-        self.get_logger().info(f"{ball_paddle_rel_pos}")
-        if np.linalg.norm(self.paddle_pos - self.p) < self.radius * 2\
+        normal = self.paddle_R[:, 2]
+        ball_paddle_rel_pos = np.dot(normal, self.p - self.paddle_p)
+        if np.linalg.norm(self.paddle_p - self.p) < self.radius * 2\
             and 0 < ball_paddle_rel_pos < self.radius:
-            n = self.paddle_z
-            delta_v = self.v - self.paddle_vel
-            delta_v_proj = np.dot(delta_v, n) * n
-            self.v += -2 * self.restitution * delta_v_proj
+            delta_v_world = self.v - self.paddle_pd       # in world frame
+            delta_v_paddle = self.paddle_R.T @ delta_v_world # now in paddle frame
+            delta_v_paddle[2] *= -1     # reflected
+            delta_v_world_after_impact = self.paddle_R @ delta_v_paddle # back to world frame
+            self.v = delta_v_world_after_impact + self.paddle_pd    # recover the total velocity
 
         # Update the ID number to create a new ball and leave the
         # previous balls where they are.
@@ -185,10 +185,9 @@ class BallEngineNode(Node):
         Args:
             msg (PoseStamped): The message containing the current pose of the paddle.
         """
-        self.paddle_pos = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        self.paddle_p = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
         orientation = np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
-        R_from_quaternion = R_from_quat(orientation)
-        self.paddle_z = R_from_quaternion @ np.array([0, 0, 1])
+        self.paddle_R = R_from_quat(orientation)
 
     def twist_callback(self, msg):
         """Callback for the twist topic. Records the current linear and angular velocity of the paddle.
@@ -196,7 +195,7 @@ class BallEngineNode(Node):
         Args:
             msg (TwistStamped): The message containing the current twist of the paddle.
         """
-        self.paddle_vel = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
+        self.paddle_pd = np.array([msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z])
 
 
 def main(args=None):

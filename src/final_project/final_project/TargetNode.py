@@ -99,7 +99,7 @@ class BinEngineNode(Node):
         """Check if the ball has collided with the bin."""
         dist_horizontal = np.linalg.norm(self.ball_position[:2] - self.bin_position[:2])
         dist_vertical = np.abs(self.ball_position[2] - self.bin_position[2])
-        if dist_horizontal < self.bin_radius + self.bin_wall_thickness and dist_vertical < self.bin_height / 2:
+        if dist_horizontal < (self.bin_radius + self.bin_wall_thickness)/2 and dist_vertical < (self.bin_height / 2) / 2:
             self.get_logger().info(f"Ball collided with the bin at position: {self.ball_position}")
             return True
         return False
