@@ -185,7 +185,7 @@ class Controller():
         pd_paddle_at_impact = pd_z * z
 
         return p_impact, pd_paddle_at_impact, R_impact, np.zeros(3), t_impact_from_now
-
+    
 
     def ikin(self, p_goal, pd_goal, R_goal, w_goal):
         """Compute the inverse kinematics for the given position and orientation.
@@ -228,17 +228,18 @@ class Controller():
 
             LAM1 = 0.5
             LAM2 = 0.02
-            # LAM2 = 0
             qd_primary = J_pinv @ error * LAM1
-            qd_secondary = (np.eye(len(q)) - Jac.T @ Jac) @ W2 @ self.wrap_q(self.q0 - q) * LAM2
+            qd_secondary = (np.eye(self.chain.dofs) - J_pinv @ Jac) @ W2 @ self.wrap_q(self.q0 - q) * LAM2
             q += (qd_primary + qd_secondary)
             
         
         p, R, Jv, Jw = self.chain.fkin(q)
-        Jac = np.vstack((Jv, Jw))
-        J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
+        Jw_tip = R.T @ Jw
+        Jw_tip = Jw_tip[:2]
+        Jac = np.vstack((Jv, Jw_tip))
+        J_pinv = np.linalg.pinv(Jac.T @ Jac + gamma**2 * W2**2) @ Jac.T
 
-        qd = J_pinv @ np.concatenate((pd_goal, w_goal))
+        qd = J_pinv @ np.concatenate((pd_goal, (R.T @ w_goal)[:2]))
 
         if converged:
             return self.wrap_q(q), qd

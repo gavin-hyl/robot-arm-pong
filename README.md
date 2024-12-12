@@ -26,11 +26,6 @@ Questions
 - Rotate 180 degrees to achieve back hand impact
 - freeze the ball for a bit when it hits
 
-TODO (gavin):
-1. resolve impact problems
-2. primary and secondary Jacobians
-
-
 Features:
 1. joint-based trajectories
 2. singularity handling with weighted inverses
