@@ -10,12 +10,11 @@
 
 import rclpy
 import numpy as np
-from time import sleep
 
 from rclpy.node                 import Node
 from rclpy.qos                  import QoSProfile, DurabilityPolicy
 from rclpy.time                 import Duration
-from geometry_msgs.msg          import Point, Vector3, Quaternion
+from geometry_msgs.msg          import Vector3, Quaternion
 from geometry_msgs.msg          import PoseStamped, TwistStamped
 from std_msgs.msg               import ColorRGBA, Bool
 from visualization_msgs.msg     import Marker
@@ -27,10 +26,8 @@ GRAVITY = np.array([0, 0, -9.82])
 
 class BallEngineNode(Node):
     def __init__(self, name, rate):
-        # Initialize the node, naming it as specified
         super().__init__(name)
 
-        # Prepare the publisher (latching for new subscribers).
         quality = QoSProfile(
             durability=DurabilityPolicy.TRANSIENT_LOCAL, depth=1)
         
