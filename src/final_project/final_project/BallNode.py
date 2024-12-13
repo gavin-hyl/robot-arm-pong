@@ -105,7 +105,7 @@ class BallEngineNode(Node):
             vec /= np.linalg.norm(vec)
             vec *= np.random.random_sample() * (max_len - min_len) + min_len
             return vec
-        TASK_SPACE_RADIUS = 0.4
+        TASK_SPACE_RADIUS = 0.3
         task_space_pos = rand_vec(0.5, 1) * TASK_SPACE_RADIUS / 2 + np.array([0, 0, TASK_SPACE_RADIUS * 2])
         
         task_space_vel = np.zeros(3)
