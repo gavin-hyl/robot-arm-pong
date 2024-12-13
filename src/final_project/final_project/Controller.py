@@ -173,22 +173,33 @@ class Controller():
             w (array): the task space angular velocity at the time of impact
         """
         # Assuming the task space is a sphere
-        TASK_SPACE_R = 0.4
-        TASK_SPACE_P = np.array([0, 0, TASK_SPACE_R * 2])
+        TASK_SPACE_R = 0.9
+        TASK_SPACE_P = np.array([0, 0, 0.6])
+        best_cond = np.inf
 
         # Forward integrate the velocity of the ball
         dt = 0.001
         found_impact_position = False
-        for t in np.arange(0, 3, dt):
+        for i, t in enumerate(np.arange(0, 3, dt)):
             # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
             # and we choose a time value that's larger than that to capture the full trajectory.
             p_ball += v_ball * dt
             v_ball += GRAVITY * dt
             r = np.linalg.norm(p_ball - TASK_SPACE_P)
-            # use compute_task_space_goal to find impact position
-            # then run ikin to find joint angles and Jac
-            # to find the condition number
-            if r < TASK_SPACE_R * 0.9 and p_ball[2] > 0:
+            if r < TASK_SPACE_R * 0.2 \
+                or r > TASK_SPACE_R * 0.8 \
+                or p_ball[2] < 0 \
+                or i % 10 != 0:
+                continue
+            q_potential, _ = self.ikin(*self.compute_task_space_goal(p_ball, v_ball, p_target))
+            if q_potential is None: # ikin did not converge
+                continue
+            _, _, Jv, Jw = self.chain.fkin(q_potential)
+            Jac = np.vstack((Jv, Jw))
+            cond = np.linalg.cond(Jac)
+            # if r < TASK_SPACE_R * 0.5 and p_ball[2] > 0:
+            if cond < best_cond:
+                best_cond = cond
                 p_impact = p_ball
                 t_impact_from_now = t
                 pd_ball_impact = v_ball
@@ -257,6 +268,8 @@ class Controller():
 
         W2 = np.diag(ARM_WEIGHTS)
         W1 = np.diag([1, 1, 1, 10, 10, 10])
+        LAM1 = 0.5
+        LAM2 = 0.02
 
         err_magnitudes = []
 
@@ -276,8 +289,6 @@ class Controller():
             gamma = 0.1
             J_pinv = np.linalg.pinv(Jac.T @ W1**2 @ Jac + gamma**2 * W2**2) @ Jac.T @ W1**2
 
-            LAM1 = 0.5
-            LAM2 = 0.02
             qd_primary = J_pinv @ error * LAM1
             qd_secondary = (np.eye(self.chain.dofs) - J_pinv @ Jac) @ W2 @ self.wrap_q(self.q0 - q) * LAM2
             q += (qd_primary + qd_secondary)
@@ -297,9 +308,10 @@ class Controller():
         if converged:
             return self.wrap_q(q), qd
         else:
-            for i, e in enumerate(err_magnitudes):
-                if i % 10 == 0:
-                    self.node.get_logger().info(f"Iteration {i}: Error magnitude: {e}")
+            self.node.get_logger().info(f"NR did not converge.\nLast err magnitude: {err_magnitudes[-1]}")
+            # for i, e in enumerate(err_magnitudes):
+                # if i % 10 == 0:
+                    # self.node.get_logger().info(f"Iteration {i}: Error magnitude: {e}")
             return None, None
 
 
