@@ -157,7 +157,6 @@ class BallEngineNode(Node):
             delta_v_paddle[2] *= -1     # reflected
             delta_v_world_after_impact = self.paddle_R @ delta_v_paddle # back to world frame
             self.v = delta_v_world_after_impact + self.paddle_pd    # recover the total velocity
-            self.get_logger().info(f"Impact at p = {self.paddle_p}, R = {self.paddle_R}\n")
             self.impacted = True
 
         # Update the ID number to create a new ball and leave the

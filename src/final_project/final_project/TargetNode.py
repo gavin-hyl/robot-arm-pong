@@ -92,7 +92,7 @@ class BinEngineNode(Node):
         dist_horizontal = np.linalg.norm(self.ball_position[:2] - self.bin_position[:2])
         dist_vertical = np.abs(self.ball_position[2] - self.bin_position[2])
         if dist_horizontal < (self.bin_radius + self.bin_wall_thickness) and dist_vertical < (self.bin_height / 2):
-            self.get_logger().info(f"Ball collided with the bin at position: {self.ball_position}")
+            self.get_logger().info(f"Collision detected at {self.ball_position}")
             return True
         return False
 
@@ -102,7 +102,6 @@ class BinEngineNode(Node):
         self.bin_position[0] = np.random.uniform(-3, 3)
         self.bin_position[1] = np.random.uniform(2, 4)
         self.bin_position[2] = np.random.uniform(0, 1)
-        self.get_logger().info(f"Bin moved to new position: {self.bin_position}")
 
     def shutdown(self):
         self.destroy_node()

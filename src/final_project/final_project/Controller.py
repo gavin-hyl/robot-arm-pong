@@ -115,9 +115,6 @@ class Controller():
             self.q_end, self.qd_end = self.ikin(p_end, pd_end, R_end, w_end)
             if self.q_end is None:
                 self.set_idle(t)
-                self.node.get_logger().info("Newton Raphson did not converge.")
-            else:
-                self.node.get_logger().info(f"Expected impact parameters: p= {p_end}, R = {R_end}")
         if self.t_end is None or t > self.t_end:
             # if ANY trajectory has ended, return to idle position
             self.set_idle(t)
@@ -186,10 +183,10 @@ class Controller():
             p_ball += v_ball * dt
             v_ball += GRAVITY * dt
             r = np.linalg.norm(p_ball - TASK_SPACE_P)
-            if r < TASK_SPACE_R * 0.2 \
-                or r > TASK_SPACE_R * 0.8 \
+            if r > TASK_SPACE_R * 0.8 \
+                or r < TASK_SPACE_R * 0.2 \
                 or p_ball[2] < 0 \
-                or i % 10 != 0:
+                or i % 100 != 0:
                 continue
             q_potential, _ = self.ikin(*self.compute_task_space_goal(p_ball, v_ball, p_target))
             if q_potential is None: # ikin did not converge
@@ -309,9 +306,6 @@ class Controller():
             return self.wrap_q(q), qd
         else:
             self.node.get_logger().info(f"NR did not converge.\nLast err magnitude: {err_magnitudes[-1]}")
-            # for i, e in enumerate(err_magnitudes):
-                # if i % 10 == 0:
-                    # self.node.get_logger().info(f"Iteration {i}: Error magnitude: {e}")
             return None, None
 
 
