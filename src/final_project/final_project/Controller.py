@@ -173,12 +173,13 @@ class Controller():
             w (array): the task space angular velocity at the time of impact
         """
         # Assuming the task space is a sphere
-        TASK_SPACE_R = 0.3
+        TASK_SPACE_R = 0.4
         TASK_SPACE_P = np.array([0, 0, TASK_SPACE_R * 2])
 
         # Forward integrate the velocity of the ball
-        dt = 0.01
-        found_impact_position = False   
+        dt = 0.001
+        found_impact_position = False
+        gravity = np.array([0, 0, -9.82])
         for t in np.arange(0, 3, dt):
             # forward integrate 3 seconds. This comes from the p_v init back-integrates 1 second, 
             # and we choose a time value that's larger than that to capture the full trajectory.
