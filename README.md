@@ -9,11 +9,6 @@ cd proj_ws
 bash run.sh
 ```
 
-- fore and back hand
-- choosing a better impact position
-
-- Rotate 180 degrees to achieve back hand impact
-
 Features:
 1. joint-based trajectories (done - gavin)
 2. singularity handling with weighted inverses (done)
