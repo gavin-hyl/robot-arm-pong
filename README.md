@@ -16,4 +16,3 @@ Features:
 4. considering condition numbers (progress)
 5. graceful handling of ball throws outside of work space (done)
 6. workspace based ball generation (and workspace visualization)
-7. considering joint limits

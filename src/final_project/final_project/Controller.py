@@ -276,7 +276,7 @@ class Controller():
             R_error = 1/2 * cross(R[:, 2], R_goal[:, 2])
             error = np.concatenate((p_error, R_error))
           
-            if np.linalg.norm(error) < 1e-2:
+            if np.linalg.norm(error) < 3e-2:
                 converged = True
                 break
 
