@@ -1,4 +1,4 @@
-# ME/EE/CS 133a Final Project
+# 7-DoF Robot Arm Ping Pong
 
 ## Instructions
 
